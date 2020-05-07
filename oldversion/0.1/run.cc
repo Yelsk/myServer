@@ -1,17 +1,20 @@
-#include<iostream>
-#include<unistd.h>
-#include<sys/socket.h>
-#include<netinet/in.h>
-#include<arpa/inet.h>
-#include<stdio.h>
-#include<errno.h>
-#include<string.h>
-#include<fcntl.h>
-#include<stdlib.h>
-#include<assert.h>
-#include<sys/epoll.h>
-#include"threadpool.h"
-//#include"myhttp_coon.h"
+#include <iostream>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <sys/epoll.h>
+#include "ThreadPool.h"
+#include "HttpConnection.h"
+#include "MutexLock.h"
+#include "Semaphore.h"
+
 using namespace std;
 const int port = 8888;
  
@@ -38,9 +41,9 @@ void addfd(int epfd, int fd, bool flag)
  
 int main(int argc, char *argv[])
 {
-    threadpool<http_coon>* pool = NULL;
-    pool = new threadpool<http_coon>;
-    http_coon* users = new http_coon[100];
+    ThreadPool<HttpConnection> *pool = NULL;
+    pool = new ThreadPool<HttpConnection>();
+    HttpConnection* users = new HttpConnection[100];
     assert(users);
     struct sockaddr_in address;
     bzero(&address, sizeof(address));
@@ -127,5 +130,5 @@ int main(int argc, char *argv[])
     close(listenfd);
     delete[] users;
     delete pool;
-    return 0;
+    return 0; 
 }

@@ -2,21 +2,47 @@
  * @Author: GanShuang 
  * @Date: 2020-05-06 09:26:41 
  * @Last Modified by: GanShuang
- * @Last Modified time: 2020-05-06 09:34:24
+ * @Last Modified time: 2020-05-08 21:02:58
  */
 
 #include "HttpConnection.h"
 
 using namespace std;
 
-void
-HttpConnection::init(int e_fd,
-                                            int c_fd)
+//初始化新连接
+HttpConnection::HttpConnection(int _epfd,
+                                                                        int _client_fd,
+                                                                        int _events,
+                                                                        Epoll *_epoll)
+                                                                        :epfd(_epfd),
+                                                                        client_fd(_client_fd),
+                                                                        events(_events),
+                                                                        epoll(_epoll),
+                                                                        timer(nullptr)
 {
-    epfd = e_fd;
-    client_fd = c_fd;
-    read_count = 0;
-    m_flag = false;
+}
+
+HttpConnection::~HttpConnection()
+{
+    cout << "~HttpConnection()" << endl;
+    struct epoll_event ev;
+    epoll->epoll_del(this);
+    if (timer != NULL)
+    {
+        timer->clearConn();
+        timer = NULL;
+    }
+    close(client_fd);
+}
+
+void
+HttpConnection::seperateTimer()
+{
+    if(timer)
+    {
+        timer->clearConn();
+        timer = nullptr;
+    }
 }
 
 void
@@ -116,7 +142,7 @@ HttpConnection::not_found_request()//404
     strcpy(path_404,"not_found_request.html");
     url = path_404;
     bzero(filename,sizeof(filename));
-    sprintf(filename,"/home/jialuhu/linux_net/web_sever/%s",url);
+    sprintf(filename,"/home/gan/linux_net/web_sever/%s",url);
     struct stat my_file;
     if(stat(filename,&my_file)<0)
     {
@@ -431,7 +457,7 @@ HttpConnection::doit()
         case NO_REQUESTION://请求不完整
         {
             cout << "NO_REQUESTION\n";
-            /*改变epoll的属性*/
+            //将fd属性再次改为可读，让epoll进行监听
             modfd(epfd, client_fd, EPOLLIN);
             return;
         }
@@ -498,6 +524,7 @@ HttpConnection::mywrite()
         }
     }
     else{
+            //多线程只读不会出错
             int fd = open(filename,O_RDONLY);
             assert(fd != -1);
             int ret;
@@ -507,6 +534,7 @@ HttpConnection::mywrite()
                 close(fd);
                 return false;
             }
+            //使用sendfile能直接在内核内进行拷贝
             ret = sendfile(client_fd, fd, NULL, file_size);
             if(ret < 0)
             {

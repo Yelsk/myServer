@@ -5,8 +5,7 @@
  * @Last Modified time: 2020-05-07 17:06:36
  */
 
-#ifndef HTTPCONNECTION_H
-#define HTTPCONNECTION_H
+#pragma once
 
 #include<iostream>
 #include<stdio.h>
@@ -96,5 +95,3 @@ private:
     bool successful_respond();//解析成功请求响应填充
     bool not_found_request();//资源不存在请求响应填充
 };
-
-#endif

@@ -18,14 +18,15 @@ HttpConnection::HttpConnection(int _epfd,
                                                                         client_fd(_client_fd),
                                                                         events(_events),
                                                                         epoll(_epoll),
-                                                                        timer(nullptr)
+                                                                        timer(nullptr),
+                                                                        read_count(0),
+                                                                        m_flag(false)
 {
 }
 
 HttpConnection::~HttpConnection()
 {
     cout << "~HttpConnection()" << endl;
-    struct epoll_event ev;
     epoll->epoll_del(this);
     if (timer != NULL)
     {
@@ -33,6 +34,7 @@ HttpConnection::~HttpConnection()
         timer = NULL;
     }
     close(client_fd);
+    client_fd = -1;
 }
 
 void
@@ -48,7 +50,12 @@ HttpConnection::seperateTimer()
 void
 HttpConnection::close_coon()
 {
-    epoll_ctl(epfd, EPOLL_CTL_DEL, client_fd, 0);
+    epoll->epoll_del(this);
+    if (timer != NULL)
+    {
+        timer->clearConn();
+        timer = NULL;
+    }
     close(client_fd);
     client_fd = -1;
 }
@@ -59,7 +66,7 @@ HttpConnection::modfd(int epfd,
                                                     int ev)
 {
     epoll_event event;
-    event.data.fd = client_fd;
+    event.data.ptr = (void *) this;
     event.events = ev | EPOLLET | EPOLLHUP |EPOLLONESHOT;
     epoll_ctl(epfd, EPOLL_CTL_MOD, client_fd, &event);
 }
@@ -451,6 +458,7 @@ HttpConnection::analyse()
 void 
 HttpConnection::doit()
 {
+    cout << "doit" << endl;
     int choice = analyse();//根据解析请求头的结果做选择
     switch(choice)
     {
@@ -506,7 +514,7 @@ HttpConnection::doit()
         default:
         {
             close_coon();
-    }
+        }
  
     }
 }

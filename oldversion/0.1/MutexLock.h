@@ -5,8 +5,7 @@
  * @Last Modified time: 2020-05-07 17:05:44
  */
 
-#ifndef MUTEXLOCK_H
-#define MUTEXLOCK_H
+#pragma once
 
 #include <exception>
 #include <pthread.h>
@@ -28,5 +27,3 @@ public:
 private:
     pthread_mutex_t mutex_;
 };
-
-#endif

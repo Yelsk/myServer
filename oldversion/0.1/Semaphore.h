@@ -5,8 +5,7 @@
  * @Last Modified time: 2020-05-07 17:07:15
  */
 
-#ifndef SEMAPHORE_H
-#define SEMAPHORE_H
+#pragma once
 
 #include <exception>
 #include <semaphore.h>
@@ -28,5 +27,3 @@ public:
 private:
     sem_t sem_;
 };
-
-#endif

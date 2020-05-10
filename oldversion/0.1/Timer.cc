@@ -6,6 +6,7 @@
  */
 
 #include "Timer.h"
+#include "HttpConnection.h"
 
 using namespace std;
 
@@ -37,6 +38,12 @@ Timer::update(int timeout)
     struct timeval now;
     gettimeofday(&now, nullptr);
     expired_time = ((now.tv_sec * 1000) + (now.tv_usec / 1000)) + timeout;
+}
+
+void
+Timer::setDeleted()
+{
+    deleted = true;
 }
 
 bool
@@ -79,4 +86,35 @@ bool
 TimerCmp::operator()(const Timer *a, const Timer *b) const
 {
     return a->getExpTime() > b->getExpTime();
+}
+
+TimerQueue::TimerQueue(){}
+
+TimerQueue::~TimerQueue()
+{
+    Timer *timer;
+    while(!timerQueue.empty())
+    {
+        timer = timerQueue.top();
+        timerQueue.pop();
+        delete timer;
+        timer = nullptr;
+    }
+}
+
+void
+TimerQueue::addTimer(Timer *timer)
+{
+    if(timer) timerQueue.push(timer);
+    else{
+        perror("no timer");
+    }
+    return;
+}
+
+void
+TimerQueue::addTimer(HttpConnection *_conn, int timeout)
+{
+    Timer *timer = new Timer(_conn, timeout);
+    timerQueue.push(timer);
 }

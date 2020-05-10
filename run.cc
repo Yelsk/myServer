@@ -50,14 +50,14 @@ int main(int argc, char *argv[])
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
     address.sin_addr.s_addr = htons(INADDR_ANY);
- 
+
     int listenfd = socket(AF_INET,SOCK_STREAM,0);
     assert(listenfd >= 0);
- 
+
     int ret;
     ret = bind(listenfd, (struct sockaddr*)&address, sizeof(address));
     assert(ret != -1);
- 
+
     ret = listen(listenfd,5);
     assert(ret >= 0);
  
@@ -68,6 +68,7 @@ int main(int argc, char *argv[])
     addfd(epfd, listenfd, false);//listen不能注册EPOLLONESHOT事件，否则只能处理一个客户连接
     while(true)
     {
+        cout << "loop 1" << endl;
         int number = epoll_wait(epfd, events, 1000, -1);
         if( (number < 0) && (errno != EINTR) )
         {
@@ -79,6 +80,7 @@ int main(int argc, char *argv[])
             int sockfd = events[i].data.fd;
             if(sockfd == listenfd)//有新用户连接
             {
+                cout << "loop 2" << endl;
                 struct sockaddr_in client_address;
                 socklen_t client_addresslength = sizeof(client_address);
                 int client_fd = accept(listenfd,(struct sockaddr*)&client_address, &client_addresslength);
@@ -106,7 +108,7 @@ int main(int argc, char *argv[])
             }
             else if(events[i].events & EPOLLIN)//可以读取
             {
-                
+                cout << "loop 3" << endl;
                 if(users[sockfd].myread())
                 {
                     

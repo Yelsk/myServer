@@ -5,8 +5,7 @@
  * @Last Modified time: 2020-05-07 17:23:51
  */
 
-#ifndef THREADPOOL_H
-#define THREADPOOL_H
+#pragma once
 
 #include <iostream>
 #include <exception>
@@ -100,5 +99,3 @@ void ThreadPool<T>::run(){
         request->doit();
     }
 }
-
-#endif

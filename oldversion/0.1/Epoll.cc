@@ -6,12 +6,15 @@
  */
 
 #include "Epoll.h"
+#include "HttpConnection.h"
+#include "Timer.h"
 
 const int MAXEPOLL = 1000;
 
 Epoll::Epoll()
                 :epfd(epoll_create(MAXEPOLL))
 {
+    std::cout << "epfd = " << epfd << std::endl;
     assert(epfd > 0);
 }
 
@@ -21,7 +24,7 @@ Epoll::~Epoll()
 }
 
 int
-Epoll::epoll_add(int fd, int events, int timeout)
+Epoll::epoll_add(int fd, int events)
 {
     struct epoll_event event;
     event.data.fd = fd;
@@ -35,13 +38,11 @@ Epoll::epoll_add(int fd, int events, int timeout)
 }
 
 int
-Epoll::epoll_add(HttpConnection *conn, int timeout)
+Epoll::epoll_add(HttpConnection *conn)
 {
+    std::cout << "epoll_add" << std::endl;
     int fd = conn->getFd();
-    if(timeout > 0)
-    {
-        add_timer(conn, timeout);
-    }
+    std::cout << "add fd" << fd << std::endl;
     struct epoll_event event;
     event.data.ptr = (void *)conn;
     event.events = conn->getEvents();
@@ -50,17 +51,14 @@ Epoll::epoll_add(HttpConnection *conn, int timeout)
         perror("epoll_add error");
         return 0;
     }
+    std::cout << "epoll_add success" << std::endl;
     return 1;
 }
 
 int
-Epoll::epoll_mod(HttpConnection *conn, int timeout)
+Epoll::epoll_mod(HttpConnection *conn)
 {
     int fd = conn->getFd();
-    if(timeout > 0)
-    {
-        add_timer(conn, timeout);
-    }
     struct epoll_event event;
     event.data.ptr = (void *)conn;
     event.events = conn->getEvents();
@@ -81,7 +79,7 @@ Epoll::epoll_del(HttpConnection *conn)
     event.events = conn->getEvents();
     if(epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &event) < 0)
     {
-        perror("epoll_add error");
+        perror("epoll_del error");
         return 0;
     }
     return 1;

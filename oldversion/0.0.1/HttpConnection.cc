@@ -2,60 +2,27 @@
  * @Author: GanShuang 
  * @Date: 2020-05-06 09:26:41 
  * @Last Modified by: GanShuang
- * @Last Modified time: 2020-05-08 21:02:58
+ * @Last Modified time: 2020-05-06 09:34:24
  */
 
 #include "HttpConnection.h"
 
 using namespace std;
 
-//初始化新连接
-HttpConnection::HttpConnection(int _epfd,
-                                                                        int _client_fd,
-                                                                        int _events,
-                                                                        Epoll *_epoll)
-                                                                        :epfd(_epfd),
-                                                                        client_fd(_client_fd),
-                                                                        events(_events),
-                                                                        epoll(_epoll),
-                                                                        timer(nullptr),
-                                                                        read_count(0),
-                                                                        m_flag(false)
-{
-}
-
-HttpConnection::~HttpConnection()
-{
-    cout << "~HttpConnection()" << endl;
-    epoll->epoll_del(this);
-    if (timer != NULL)
-    {
-        timer->clearConn();
-        timer = NULL;
-    }
-    close(client_fd);
-    client_fd = -1;
-}
-
 void
-HttpConnection::seperateTimer()
+HttpConnection::init(int e_fd,
+                                            int c_fd)
 {
-    if(timer)
-    {
-        timer->clearConn();
-        timer = nullptr;
-    }
+    epfd = e_fd;
+    client_fd = c_fd;
+    read_count = 0;
+    m_flag = false;
 }
 
 void
 HttpConnection::close_coon()
 {
-    epoll->epoll_del(this);
-    if (timer != NULL)
-    {
-        timer->clearConn();
-        timer = NULL;
-    }
+    epoll_ctl(epfd, EPOLL_CTL_DEL, client_fd, 0);
     close(client_fd);
     client_fd = -1;
 }
@@ -66,7 +33,7 @@ HttpConnection::modfd(int epfd,
                                                     int ev)
 {
     epoll_event event;
-    event.data.ptr = (void *) this;
+    event.data.fd = client_fd;
     event.events = ev | EPOLLET | EPOLLHUP |EPOLLONESHOT;
     epoll_ctl(epfd, EPOLL_CTL_MOD, client_fd, &event);
 }
@@ -149,7 +116,7 @@ HttpConnection::not_found_request()//404
     strcpy(path_404,"not_found_request.html");
     url = path_404;
     bzero(filename,sizeof(filename));
-    sprintf(filename,"/home/gan/linux_net/web_sever/%s",url);
+    sprintf(filename,"/home/jialuhu/linux_net/web_sever/%s",url);
     struct stat my_file;
     if(stat(filename,&my_file)<0)
     {
@@ -458,14 +425,13 @@ HttpConnection::analyse()
 void 
 HttpConnection::doit()
 {
-    cout << "doit" << endl;
     int choice = analyse();//根据解析请求头的结果做选择
     switch(choice)
     {
         case NO_REQUESTION://请求不完整
         {
             cout << "NO_REQUESTION\n";
-            //将fd属性再次改为可读，让epoll进行监听
+            /*改变epoll的属性*/
             modfd(epfd, client_fd, EPOLLIN);
             return;
         }
@@ -514,7 +480,7 @@ HttpConnection::doit()
         default:
         {
             close_coon();
-        }
+    }
  
     }
 }
@@ -532,7 +498,6 @@ HttpConnection::mywrite()
         }
     }
     else{
-            //多线程只读不会出错
             int fd = open(filename,O_RDONLY);
             assert(fd != -1);
             int ret;
@@ -542,7 +507,6 @@ HttpConnection::mywrite()
                 close(fd);
                 return false;
             }
-            //使用sendfile能直接在内核内进行拷贝
             ret = sendfile(client_fd, fd, NULL, file_size);
             if(ret < 0)
             {

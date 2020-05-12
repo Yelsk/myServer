@@ -5,7 +5,8 @@
  * @Last Modified time: 2020-05-07 17:06:36
  */
 
-#pragma once
+#ifndef HTTPCONNECTION_H
+#define HTTPCONNECTION_H
 
 #include<iostream>
 #include<stdio.h>
@@ -21,8 +22,6 @@
 #include<sys/fcntl.h>
 #include<sys/stat.h>
 #include<sys/types.h>
-#include "Timer.h"
-#include "Epoll.h"
 
 #define READ_BUF 2000
 
@@ -42,21 +41,16 @@ public:
     enum CHECK_STATUS{HEAD, //请求解析的状态转移, HEAD表示解析头部信息
     REQUESTION}; //REQUESTION表示解析请求行
 
-    HttpConnection(int _epfd, int _client_fd, int _events, Epoll *_epoll);
-    ~HttpConnection();
+    HttpConnection(){      };
+    ~HttpConnection(){       };
     int epfd;
     int client_fd;
-    int events;
     int read_count;
+    void init(int e_fd, int c_fd);//初始化
     int myread();//读取请求
     bool mywrite();//响应发送
     void doit();//线程接口函数
     void close_coon();//关闭客户端链接
-    int getFd() {return client_fd;}
-    int getEvents(){return events;}
-    void setEvents(int _events) {events = _events;}
-    void addTimer(Timer *_timer) {timer = _timer;}
-    void seperateTimer();
 private:
     char request_head_buf[1000]; //响应头的填充
     char post_buf[1000]; //Post请求的读缓冲区
@@ -78,8 +72,6 @@ private:
     char message[1000]; //响应消息体缓冲区
     char body[2000]; //post响应消息体缓冲区
     CHECK_STATUS status; //状态转移
-    Timer *timer;
-    Epoll *epoll;
     bool m_flag; //true表示是动态请求，反之是静态请求
     HTTP_CODE analyse();//解析Http请求头的函数
     int judge_line(int &check_index, int &read_buf_len);//该请求是否是完整的以行\r\n
@@ -95,3 +87,5 @@ private:
     bool successful_respond();//解析成功请求响应填充
     bool not_found_request();//资源不存在请求响应填充
 };
+
+#endif

@@ -2,19 +2,19 @@
  * @Author: GanShuang 
  * @Date: 2020-05-08 21:22:26 
  * @Last Modified by: GanShuang
- * @Last Modified time: 2020-05-08 23:10:32
+ * @Last Modified time: 2020-05-16 19:56:01
  */
 
 #include "Epoll.h"
 #include "HttpConnection.h"
 #include "Timer.h"
 
-const int MAXEPOLL = 1000;
+const int MAXEPOLL = 100;
 
 Epoll::Epoll()
                 :epfd(epoll_create(MAXEPOLL))
 {
-    std::cout << "epfd = " << epfd << std::endl;
+    //std::cout << "epfd = " << epfd << std::endl;
     assert(epfd > 0);
 }
 
@@ -40,9 +40,7 @@ Epoll::epoll_add(int fd, int events)
 int
 Epoll::epoll_add(HttpConnection *conn)
 {
-    std::cout << "epoll_add" << std::endl;
     int fd = conn->getFd();
-    std::cout << "add fd" << fd << std::endl;
     struct epoll_event event;
     event.data.ptr = (void *)conn;
     event.events = conn->getEvents();
@@ -51,7 +49,6 @@ Epoll::epoll_add(HttpConnection *conn)
         perror("epoll_add error");
         return 0;
     }
-    std::cout << "epoll_add success" << std::endl;
     return 1;
 }
 

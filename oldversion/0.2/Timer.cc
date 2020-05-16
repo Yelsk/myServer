@@ -2,7 +2,7 @@
  * @Author: GanShuang 
  * @Date: 2020-05-08 20:19:04 
  * @Last Modified by: GanShuang
- * @Last Modified time: 2020-05-08 20:38:16
+ * @Last Modified time: 2020-05-16 19:56:27
  */
 
 #include "Timer.h"
@@ -18,7 +18,7 @@ Timer::Timer(HttpConnection *_conn, int timeout)
     struct timeval now;
     gettimeofday(&now, nullptr);
     // 以毫秒计
-    expired_time = ((now.tv_sec * 1000) + (now.tv_usec / 1000)) + timeout;
+    expired_time = (((now.tv_sec % 10000) * 1000) + (now.tv_usec / 1000)) + timeout;
 }
 
 Timer::~Timer()
@@ -26,7 +26,7 @@ Timer::~Timer()
     //cout << "~myTimer" << endl;
     if(conn)
     {
-        cout << "connection = " << conn << endl;
+        //cout << "connection = " << conn << endl;
         delete conn;
         conn = nullptr;
     }
@@ -37,7 +37,7 @@ Timer::update(int timeout)
 {
     struct timeval now;
     gettimeofday(&now, nullptr);
-    expired_time = ((now.tv_sec * 1000) + (now.tv_usec / 1000)) + timeout;
+    expired_time = (((now.tv_sec % 10000) * 1000) + (now.tv_usec / 1000)) + timeout;
 }
 
 void
@@ -51,7 +51,7 @@ Timer::isvalid()
 {
     struct timeval now;
     gettimeofday(&now, nullptr);
-    size_t tmp = (now.tv_sec * 1000) + (now.tv_usec / 1000);
+    size_t tmp = ((now.tv_sec % 10000) * 1000) + (now.tv_usec / 1000);
     if(tmp < expired_time)
     {
         return true;

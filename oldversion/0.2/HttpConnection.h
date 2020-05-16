@@ -2,7 +2,7 @@
  * @Author: GanShuang 
  * @Date: 2020-05-05 21:17:55 
  * @Last Modified by: GanShuang
- * @Last Modified time: 2020-05-07 17:06:36
+ * @Last Modified time: 2020-05-16 19:55:53
  */
 
 #pragma once
@@ -21,10 +21,14 @@
 #include<sys/fcntl.h>
 #include<sys/stat.h>
 #include<sys/types.h>
+#include <sys/mman.h>
 #include "Timer.h"
 #include "Epoll.h"
+#include "MutexLock.h"
 
 const int MAX_BUFF = 4096;
+const int KEEP_ALIVE_TIME = 5 * 60 * 1000;
+const int TIMER_UPDATE_TIME = 500;
 
 //HTTPCODE
 const int INTERNAL_ERROR = -1;
@@ -45,7 +49,7 @@ const int FINISH = 10;
 class HttpConnection
 {
 public:
-    HttpConnection(int _epfd, int _client_fd, int _events, Epoll *_epoll, std::string _path);
+    HttpConnection(int _epfd, int _client_fd, int _events, Epoll *_epoll, std::string _path, MutexLock *_lock, TimerQueue *_timerQueue);
     ~HttpConnection();
     int epfd;
     int client_fd;
@@ -54,6 +58,8 @@ public:
     size_t myread();//读取请求
     bool HandleRead();
     bool HandleWrite();//响应发送
+    void HandleConn();
+    void Reset();
     void doit();//线程接口函数
     void close_coon();//关闭客户端链接
     int getFd() {return client_fd;}
@@ -86,12 +92,14 @@ private:
     bool dynamic_flag;
     bool keep_alive;
     bool error;
-    // char request_head_buf[1000]; //响应头的填充
-    // char post_buf[1000]; //Post请求的读缓冲区
-    // char read_buf[READ_BUF]; //客户端的http请求读取
-    // char filename[250]; //文件总目录
+    std::string m_file_address;
+    struct stat m_file_stat;
+    struct iovec m_iv[2];
+    int m_iv_count;
     int file_size; //文件大小
     Timer *timer;
+    TimerQueue *timerQueue;
+    MutexLock *lock;
     Epoll *epoll;
     void dynamic(std::string &filename, std::string &argv);//通过get方法进入的动态请求处理
     void post_respond();//POST请求响应填充

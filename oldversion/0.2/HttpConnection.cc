@@ -2,7 +2,7 @@
  * @Author: GanShuang 
  * @Date: 2020-05-06 09:26:41 
  * @Last Modified by: GanShuang
- * @Last Modified time: 2020-05-08 21:02:58
+ * @Last Modified time: 2020-05-16 19:55:43
  */
 
 #include "HttpConnection.h"
@@ -13,12 +13,16 @@ HttpConnection::HttpConnection(int _epfd,
                                                                         int _client_fd,
                                                                         int _events,
                                                                         Epoll *_epoll,
-                                                                        string _path)
+                                                                        string _path,
+                                                                        MutexLock *_lock,
+                                                                        TimerQueue *_timerQueue)
                                                                         :epfd(_epfd),
                                                                         client_fd(_client_fd),
                                                                         events(_events),
                                                                         epoll(_epoll),
                                                                         path(_path),
+                                                                        lock(_lock),
+                                                                        timerQueue(_timerQueue),
                                                                         keep_alive(false),
                                                                         dynamic_flag(false)
 {
@@ -26,7 +30,7 @@ HttpConnection::HttpConnection(int _epfd,
 
 HttpConnection::~HttpConnection()
 {
-    cout << "~HttpConnection()" << endl;
+    //cout << "~HttpConnection()" << endl;
     epoll->epoll_del(this);
     if (timer != NULL)
     {
@@ -38,6 +42,18 @@ HttpConnection::~HttpConnection()
 }
 
 void
+HttpConnection::Reset()
+{
+    read_buffer.clear();
+    request_head_buffer.clear();
+    post_buffer.clear();
+    contentBody.clear();
+    check_index = 0;
+    status = REQUETION;
+    keep_alive = false;
+}
+
+void
 HttpConnection::seperateTimer()
 {
     if(timer)
@@ -45,6 +61,33 @@ HttpConnection::seperateTimer()
         timer->clearConn();
         timer = nullptr;
     }
+}
+
+void
+HttpConnection::HandleConn()
+{
+    Reset();
+    if(keep_alive)
+    {
+        timer = new Timer(this, KEEP_ALIVE_TIME);
+    }
+    else
+    {
+        delete this;
+        return;
+    }
+    lock->lock();
+    timerQueue->addTimer(timer);
+    lock->unlock();
+    events = EPOLLIN | EPOLLRDHUP | EPOLLONESHOT | EPOLLET | EPOLLERR;
+    int ret = epoll->epoll_mod(this);
+    if (ret < 0)
+    {
+        // 返回错误处理
+        delete this;
+        return;
+    }
+    return;
 }
 
 size_t
@@ -83,28 +126,39 @@ HttpConnection::HandleWrite()
         int r = send(client_fd,contentBody.c_str(),contentBody.size(),0);
         if(ret>0 && r>0)
         {
+            status = FINISH;
             return true;
         }
     }
     else{
-            //多线程只读不会出错
-            int fd = open(file_name.c_str(),O_RDONLY);
-            assert(fd != -1);
             int ret;
-            ret = write(client_fd,request_head_buffer.c_str(),request_head_buffer.size());
-            if(ret < 0)
+            request_head_buffer += contentBody;
+            int to_write = request_head_buffer.size(), have_write = 0;
+            while (true)
             {
-                close(fd);
-                return false;
+                ret = write(client_fd,request_head_buffer.c_str() + have_write,request_head_buffer.size() - have_write);
+                if(ret < 0)
+                {
+                    return false;
+                }
+                else if(ret < 0)
+                {
+                    if(ret == -1)
+                    {
+                        if(errno == EAGAIN)
+                        {
+                            return true;
+                        }
+                        return false;
+                    }
+                }
+                else if(ret >= (to_write - have_write))
+                {
+                    return true;
+                }
+                have_write += ret;
             }
-            //使用sendfile能直接在内核内进行拷贝
-            ret = sendfile(client_fd, fd, NULL, file_size);
-            if(ret < 0)
-            {
-                close(fd);
-                return false;
-            }
-            close(fd);
+            status = FINISH;
             return true;
     }
     return true;
@@ -134,8 +188,8 @@ HttpConnection::successful_respond() //200
     dynamic_flag = false;
     if(keep_alive)
     {
-        cout << request_head_buffer << endl;
-        request_head_buffer =  "HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(5 * 60 * 1000) + "\r\nContent-length: " + to_string(file_size) + "\r\n\r\n";
+        //cout << request_head_buffer << endl;
+        request_head_buffer =  "HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(KEEP_ALIVE_TIME) + "\r\nContent-length: " + to_string(file_size) + "\r\n\r\n";
     }
     else
     {
@@ -173,7 +227,7 @@ bool
 HttpConnection::not_found_request()//404
 {
     file_name = path + "not_found_request.html";
-    cout << file_name << endl;
+    //cout << file_name << endl;
     struct stat my_file;
     if(stat(file_name.c_str(),&my_file)<0)
     {
@@ -198,7 +252,7 @@ HttpConnection::dynamic(string &filename, string &argv)
         contentBody = "<html><body>\r\n<p>" + to_string(number[0])  + "+ "+ to_string(number[1]) + "= " + to_string(sum) +" </p><hr>\r\n</body></html>\r\n";
         if(keep_alive)
         {
-            request_head_buffer =  "HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(5 * 60 * 1000) + "\r\nContent-length: " + to_string(contentBody.size()) + "\r\n\r\n";
+            request_head_buffer =  "HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(KEEP_ALIVE_TIME) + "\r\nContent-length: " + to_string(contentBody.size()) + "\r\n\r\n";
         }
         else
         {
@@ -207,7 +261,7 @@ HttpConnection::dynamic(string &filename, string &argv)
     }
     else if(file_name == "multiplication")
     {
-        cout << "\t\t\t\tmultiplication\n\n";
+        //cout << "\t\t\t\tmultiplication\n\n";
         sum = number[0]*number[1];
         contentBody = "<html><body>\r\n<p>" + to_string(number[0])  + "* "+ to_string(number[1]) + "= " + to_string(sum) +" </p><hr>\r\n</body></html>\r\n";
         if(keep_alive)
@@ -231,6 +285,7 @@ HttpConnection::post_respond()
         execl(file_name.c_str(), argv.c_str(), nullptr);
     }
     wait(nullptr);
+    status = FINISH;
 }
 
 //解析请求行
@@ -244,7 +299,7 @@ HttpConnection::RequestionLineParse(string &line)
         return BAD_REQUESTION;
     }
     method = line.substr(start, pos-start);
-    cout << method << endl;
+    //cout << method << endl;
     pos++;
     start = pos;
     pos = line.find(' ', pos);
@@ -254,7 +309,7 @@ HttpConnection::RequestionLineParse(string &line)
     }
     if(line[start] == '/') start++;
     url = line.substr(start, pos-start);
-    cout << url << endl;
+    //cout << url << endl;
     pos++;
     start = pos;
     pos = line.find('\r', pos);
@@ -263,7 +318,7 @@ HttpConnection::RequestionLineParse(string &line)
         return BAD_REQUESTION;
     }
     version = line.substr(start, pos-start);
-    cout << version << endl;
+    //cout << version << endl;
     if(method != "GET" && method != "POST")
     {
         return BAD_REQUESTION;
@@ -277,7 +332,7 @@ HttpConnection::RequestionLineParse(string &line)
         return BAD_REQUESTION;
     }
     status = HEAD;
-    cout << "return no_requestion" << endl;
+    //cout << "return no_requestion" << endl;
     return NO_REQUESTION;
 }
 
@@ -285,11 +340,11 @@ HttpConnection::RequestionLineParse(string &line)
 int
 HttpConnection::HeadersParse(string &line)
 {
-    cout << "header parse" << endl;
+    //cout << "header parse" << endl;
     int pos = 0;
     if(line[0] == '\r')
     {
-        cout << "get requestion" << endl;
+        //cout << "get requestion" << endl;
         status = FINISH;
         //获得一个完整http请求
         return GET_REQUESTION;
@@ -301,10 +356,10 @@ HttpConnection::HeadersParse(string &line)
         int start = pos;
         pos = line.find('\r', start);
         string tmp = line.substr(start, pos - start);
-        cout << tmp << endl;
+        //cout << tmp << endl;
         if(tmp == "keep-alive")
         {
-            cout << "keep_alive = true" << endl;
+            //cout << "keep_alive = true" << endl;
             keep_alive = true;
         }
     }
@@ -314,7 +369,7 @@ HttpConnection::HeadersParse(string &line)
         int start = pos;
         pos = line.find('\r', start);
         string tmp = line.substr(start, pos - start);
-        cout << tmp << endl;
+        //cout << tmp << endl;
         contentLength = stoi(tmp);//content-length需要填充
     }
     else if((pos = line.find("Host:")) != string::npos)
@@ -323,11 +378,11 @@ HttpConnection::HeadersParse(string &line)
         int start = pos;
         pos = line.find('\r', start);
         string tmp = line.substr(start, pos - start);
-        cout << tmp << endl;
+        //cout << tmp << endl;
         host = tmp;
     }
     else{
-        cout << "can't handle it's hand\n";
+        //cout << "can't handle it's hand\n";
     }
     return NO_REQUESTION;
 }
@@ -370,17 +425,17 @@ HttpConnection::Analyse()
     while(flag = JudgeLine(check_index) == 1)
     {
         string line = read_buffer.substr(start_line, check_index - start_line - 1);
-        cout << line << endl;
+        //cout << line << endl;
         start_line = check_index;
         switch (status)
         {
             case REQUETION:
             {
-                cout << "parse requestion line" << endl;
+                //cout << "parse requestion line" << endl;
                 int ret = RequestionLineParse(line);
                 if(ret==BAD_REQUESTION)
                 {
-                    cout << "ret == BAD_REQUESTION\n";
+                    //cout << "ret == BAD_REQUESTION\n";
                     //请求格式不正确
                     return BAD_REQUESTION;
                 }
@@ -409,7 +464,7 @@ HttpConnection::Analyse()
         }
     }
     if(error) {
-        cout << "internal error" << endl;
+        //cout << "internal error" << endl;
         return INTERNAL_ERROR;
     }
     //请求不完整需要继续读入
@@ -423,7 +478,7 @@ HttpConnection::HandleGet()
     int pos = url.find('?');
     if(pos >= 0)
     {
-        cout << "dynamic_file" << endl;
+        //cout << "dynamic_file" << endl;
         argv = url.substr(pos+1);
         file_name = url.substr(0, pos);
         return DYNAMIC_FILE;
@@ -431,7 +486,7 @@ HttpConnection::HandleGet()
     else
     {
         file_name = url;
-        cout << "file_name" << file_name << endl;
+        //cout << "file_name" << file_name << endl;
         struct stat m_file_stat;
         if(stat(file_name.c_str(), &m_file_stat))
         {
@@ -445,6 +500,11 @@ HttpConnection::HandleGet()
         {
             return BAD_REQUESTION;
         }
+        int fd = open(file_name.c_str(), O_RDONLY);
+        m_file_address = string((char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0));
+        close(fd);
+        contentBody = m_file_address;
+        munmap((void *)m_file_address.c_str(), m_file_stat.st_size);
         file_size = m_file_stat.st_size;
         return FILE_REQUESTION;
     }
@@ -456,8 +516,8 @@ HttpConnection::HandlePost()
 {
     file_name = url;
     argv = post_buffer.substr(read_buffer.size() - contentLength);
-    cout << "argv: " << argv << endl;
-    cout << "file_name" << file_name << endl;
+    //cout << "argv: " << argv << endl;
+    //cout << "file_name" << file_name << endl;
     if(!file_name.empty() && !argv.empty())
     {
         return POST_FILE;
@@ -469,14 +529,14 @@ HttpConnection::HandlePost()
 void 
 HttpConnection::doit()
 {
-    cout << "doit" << endl;
+   //cout << "doit" << endl;
     int choice = Analyse();//根据解析请求头的结果做选择
-    events = EPOLLET | EPOLLHUP |EPOLLONESHOT;
+    events = EPOLLRDHUP | EPOLLONESHOT | EPOLLET | EPOLLERR;
     switch(choice)
     {
         case NO_REQUESTION://请求不完整
         {
-            cout << "NO_REQUESTION\n";
+            //cout << "NO_REQUESTION\n";
             //将fd属性再次改为可读，让epoll进行监听
             events |= EPOLLIN;
             epoll->epoll_mod(this);
@@ -484,7 +544,7 @@ HttpConnection::doit()
         }
         case BAD_REQUESTION: //400
         {
-            cout << "BAD_REQUESTION\n";
+            //cout << "BAD_REQUESTION\n";
             bad_respond();
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
@@ -492,7 +552,7 @@ HttpConnection::doit()
         }
         case FORBIDDEN_REQUESTION://403
         {
-            cout << "forbiden_respond\n";
+            //cout << "forbiden_respond\n";
             forbiden_respond();
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
@@ -500,7 +560,7 @@ HttpConnection::doit()
         }
         case NOT_FOUND://404
         {
-            cout<<"not_found_request"<< endl;
+            //cout<<"not_found_request"<< endl;
             not_found_request();
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
@@ -508,7 +568,7 @@ HttpConnection::doit()
         }
         case FILE_REQUESTION://GET文件资源无问题
         {
-            cout << "文件file request\n";
+            //cout << "文件file request\n";
             successful_respond();
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
@@ -516,8 +576,8 @@ HttpConnection::doit()
         }
         case DYNAMIC_FILE: //动态请求处理
         {
-            cout << "动态请求处理\n";
-            cout << file_name << " " << argv << endl;
+            //cout << "动态请求处理\n";
+            //cout << file_name << " " << argv << endl;
             dynamic(file_name, argv);
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
@@ -525,8 +585,14 @@ HttpConnection::doit()
         }
         case POST_FILE: //POST 方法处理
         {
-            cout << "post_respond\n";
+            //cout << "post_respond\n";
             post_respond();
+            break;
+        }
+        case FINISH: //长连接短连接处理
+        {
+            //cout << "handle connection" << endl;
+            HandleConn();
             break;
         }
         default:

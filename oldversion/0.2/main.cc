@@ -1,3 +1,10 @@
+/*
+ * @Author: GanShuang 
+ * @Date: 2020-05-16 19:56:10 
+ * @Last Modified by:   GanShuang 
+ * @Last Modified time: 2020-05-16 19:56:10 
+ */
+
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -16,7 +23,7 @@
 using namespace std;
 
 const int PORT = 8888;
-const int LISTENQ = 1024;
+const int LISTENQ = 5;
 const string PATH = "";
 const int EPOLLWAIT_TIME = 500;
 const int TIMER_TIME_OUT = 500;
@@ -85,10 +92,10 @@ acceptConnection(int listen_fd, Epoll *epoll, MutexLock *lock, TimerQueue *timer
     int accept_fd = 0;
     while((accept_fd  = accept(listen_fd, (struct sockaddr *)&client_addr, &client_addr_len)) > 0)
     {
-        cout << "this is accept_fd: " << accept_fd << endl;
+        // cout << "this is accept_fd: " << accept_fd << endl;
         // 文件描述符可以读，边缘触发(Edge Triggered)模式，保证一个socket连接在任一时刻只被一个线程处理
-        uint32_t events = EPOLLIN | EPOLLRDHUP | EPOLLONESHOT | EPOLLET;
-        HttpConnection *conn = new HttpConnection(epoll->getEpollfd(), accept_fd, events, epoll, PATH);
+        uint32_t events = EPOLLIN | EPOLLRDHUP | EPOLLONESHOT | EPOLLET | EPOLLERR;
+        HttpConnection *conn = new HttpConnection(epoll->getEpollfd(), accept_fd, events, epoll, PATH, lock, timerQueue);
         //将连接加入epoll事件表
         epoll->epoll_add(conn);
         //设为非阻塞模式
@@ -121,11 +128,11 @@ void handle_events(MutexLock *lock,
         // 获取有事件产生的描述符
         HttpConnection *conn = (HttpConnection *)(events[i].data.ptr);
         int fd = conn->getFd();
-        cout << "This is fd " << fd << endl;
+        // cout << "This is fd " << fd << endl;
         // 有事件发生的描述符为监听描述符
         if(fd == listen_fd)
         {
-            cout << "This is listen_fd " << listen_fd << endl;
+            // cout << "This is listen_fd " << listen_fd << endl;
             acceptConnection(listen_fd, epoll, lock, timerQueue);
         }
         else
@@ -133,35 +140,34 @@ void handle_events(MutexLock *lock,
             // 排除错误事件
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLRDHUP))
             {
-                cout << "error events" << endl;
+                // cout << "error events" << endl;
                 delete conn;
                 continue;
             }
             else if(events[i].events & EPOLLIN)
             {
-                cout << "seperateTimer" << endl;
+                // cout << "seperateTimer" << endl;
                 // 加入线程池之前将Timer和request分离
-                conn->seperateTimer();
+                // conn->seperateTimer();
                 if(conn->HandleRead())
                 {
-                    cout << "add jobs" << endl;
+                    // cout << "add jobs" << endl;
                     // 将请求任务加入到线程池中
                     pool->addjob(conn);
                 }
                 else
                 {
-                    cout << "close" << endl;
+                    // cout << "close" << endl;
                     delete conn;
                 }
             }
             else if(events[i].events & EPOLLOUT)
             {
-                cout << "handle write" << endl;
+                // cout << "handle write" << endl;
                 conn->seperateTimer();
                 if(conn->HandleWrite())
                 {
-                    cout << "close" << endl;
-                    delete conn;
+                    conn->HandleConn();
                 }
             }
         }
@@ -181,7 +187,7 @@ void handle_events(MutexLock *lock,
 
 void handle_expired_event(MutexLock *lock, TimerQueue *timerQueue)
 {
-    cout << "expire lock" << endl;
+    // cout << "expire lock" << endl;
     lock->lock();
     while (!timerQueue->empty())
     {
@@ -202,7 +208,7 @@ void handle_expired_event(MutexLock *lock, TimerQueue *timerQueue)
         }
     }
     lock->unlock();
-    cout << "expire unlock" << endl;
+    // cout << "expire unlock" << endl;
 }
 
 int main(int argc, char *argv[])
@@ -211,7 +217,7 @@ int main(int argc, char *argv[])
     MutexLock *lock = new MutexLock();
     Epoll *epoll = new Epoll();
     TimerQueue *timerQueue = new TimerQueue();
-    epoll_event events[1000];
+    epoll_event events[10000];
     // handle_for_sigpipe();
     int listen_fd = socket_bind_listen(PORT);
     if(listen_fd < 0)
@@ -224,17 +230,17 @@ int main(int argc, char *argv[])
         perror("set nonblocking error");
         return 1;
     }
-    uint32_t event = EPOLLIN | EPOLLET | EPOLLRDHUP;
-    HttpConnection *conn = new HttpConnection(epoll->getEpollfd(), listen_fd, event, epoll, PATH);
+    uint32_t event = EPOLLIN | EPOLLET | EPOLLRDHUP | EPOLLERR;
+    HttpConnection *conn = new HttpConnection(epoll->getEpollfd(), listen_fd, event, epoll, PATH, lock, timerQueue);
     epoll->epoll_add(conn);
     while(true)
     {
-        cout << "loop" << endl;
+        // cout << "loop" << endl;
         int events_num = epoll->my_epoll_wait(events, MAXEPOLL, -1);
-        cout << "events_num :"<< events_num << endl;
+        // cout << "events_num :"<< events_num << endl;
         if(events_num == 0) continue;
         handle_events(lock, epoll, listen_fd, events, events_num, timerQueue, pool);
-        cout << "handle events end" << endl;
+        // cout << "handle events end" << endl;
         handle_expired_event(lock, timerQueue);
     }
     close(listen_fd);

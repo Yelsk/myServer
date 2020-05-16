@@ -37,8 +37,8 @@ private:
  
 template <typename T>
 ThreadPool<T>::ThreadPool(){
-    thread_num = 8;
-    jobthread_num = 1000;
+    thread_num = 4;
+    jobthread_num = 10000;
     quit_ = false;
     pthread_pool = new pthread_t[thread_num];
     if(!pthread_pool){

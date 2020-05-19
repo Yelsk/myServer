@@ -45,7 +45,6 @@ ThreadPool<T>::ThreadPool(){
         throw exception();
     }
     for(int i = 0; i < thread_num; i++){
-        cout << "Create the pthread: " << i << endl;
         if(pthread_create(pthread_pool+i, nullptr, pthread_func, this) != 0){
             delete [] pthread_pool;
             throw exception();

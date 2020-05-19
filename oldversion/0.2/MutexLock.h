@@ -21,7 +21,7 @@ public:
     ~MutexLock(){
         pthread_mutex_destroy(&mutex_);
     };
-    pthread_mutex_t *GetPthreadMutex(){ return &mutex_; };
+    pthread_mutex_t *get(){ return &mutex_; };
     bool lock();
     bool unlock();
 private:

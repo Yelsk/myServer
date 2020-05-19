@@ -9,12 +9,11 @@
 #include "HttpConnection.h"
 #include "Timer.h"
 
-const int MAXEPOLL = 100;
+const int MAXEPOLL = 10;
 
 Epoll::Epoll()
                 :epfd(epoll_create(MAXEPOLL))
 {
-    //std::cout << "epfd = " << epfd << std::endl;
     assert(epfd > 0);
 }
 

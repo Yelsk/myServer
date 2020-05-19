@@ -21,6 +21,7 @@
 #include<sys/fcntl.h>
 #include<sys/stat.h>
 #include<sys/types.h>
+#include <netinet/in.h>
 #include <sys/mman.h>
 #include "Timer.h"
 #include "Epoll.h"
@@ -49,7 +50,7 @@ const int FINISH = 10;
 class HttpConnection
 {
 public:
-    HttpConnection(int _epfd, int _client_fd, int _events, Epoll *_epoll, std::string _path, MutexLock *_lock, TimerQueue *_timerQueue);
+    HttpConnection(int _epfd, int _client_fd, int _events, Epoll *_epoll, std::string _path, MutexLock *_lock, TimerQueue *_timerQueue, sockaddr_in address);
     ~HttpConnection();
     int epfd;
     int client_fd;
@@ -67,6 +68,10 @@ public:
     void setEvents(int _events) {events = _events;}
     void addTimer(Timer *_timer) {timer = _timer;}
     void seperateTimer();
+    sockaddr_in *get_address()
+    {
+        return &m_address;
+    }
 private:
     std::string read_buffer;
     std::string request_head_buffer;
@@ -92,7 +97,7 @@ private:
     bool dynamic_flag;
     bool keep_alive;
     bool error;
-    std::string m_file_address;
+    char *m_file_address;
     struct stat m_file_stat;
     struct iovec m_iv[2];
     int m_iv_count;
@@ -101,6 +106,7 @@ private:
     TimerQueue *timerQueue;
     MutexLock *lock;
     Epoll *epoll;
+    sockaddr_in m_address;
     void dynamic(std::string &filename, std::string &argv);//通过get方法进入的动态请求处理
     void post_respond();//POST请求响应填充
     bool bad_respond();//语法错误请求响应填充

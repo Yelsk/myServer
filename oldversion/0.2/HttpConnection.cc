@@ -5,6 +5,7 @@
  * @Last Modified time: 2020-05-16 19:55:43
  */
 
+#include "Log.h"
 #include "HttpConnection.h"
 
 using namespace std;
@@ -75,6 +76,8 @@ HttpConnection::HandleConn()
     }
     else
     {
+        LOG_INFO("close connection");
+        Log::get_instance()->flush();
         delete this;
         return;
     }
@@ -86,6 +89,7 @@ HttpConnection::HandleConn()
     if (ret < 0)
     {
         // 返回错误处理
+        LOG_ERROR("epoll error");
         delete this;
         return;
     }
@@ -134,6 +138,8 @@ HttpConnection::HandleWrite()
     }
     else{
             int ret;
+            LOG_INFO("request:%s", request_head_buffer);
+            Log::get_instance()->flush();
             request_head_buffer += contentBody;
             int to_write = request_head_buffer.size(), have_write = 0;
             while (true)
@@ -205,7 +211,8 @@ HttpConnection::bad_respond() //400
     struct stat my_file;
     if(stat(file_name.c_str(), &my_file) < 0)
     {
-        cout << "no file\n";
+        LOG_INFO("request bad");
+        Log::get_instance()->flush();
     }
     file_size = my_file.st_size;
     request_head_buffer = "HTTP/1.1 400 BAD_REQUESTION\r\nConnection: close\r\nContent-length:" + to_string(file_size) +"\r\n\r\n";
@@ -218,7 +225,8 @@ HttpConnection::forbiden_respond() //403
     struct stat my_file;
     if(stat(file_name.c_str(),&my_file)<0)
     {
-        cout << "forbiden\n";
+        LOG_INFO("get forbiden");
+        Log::get_instance()->flush();
     }
     file_size = my_file.st_size;
     request_head_buffer = "HTTP/1.1 403 FORBIDEN\r\nConnection: close\r\nContent-length:" + to_string(file_size) + "\r\n\r\n";
@@ -232,7 +240,8 @@ HttpConnection::not_found_request()//404
     struct stat my_file;
     if(stat(file_name.c_str(),&my_file)<0)
     {
-        cout << "not found\n";
+        LOG_INFO("file not found");
+        Log::get_instance()->flush();
     }
     file_size = my_file.st_size;
     request_head_buffer = "HTTP/1.1 404 NOT_FOUND\r\nConnection: close\r\nContent-length:" + to_string(file_size) + "\r\n\r\n";
@@ -373,7 +382,8 @@ HttpConnection::HeadersParse(string &line)
         host = tmp;
     }
     else{
-        //cout << "can't handle it's hand\n";
+        LOG_INFO("can't handle its header");
+        Log::get_instance()->flush();
     }
     return NO_REQUESTION;
 }
@@ -452,6 +462,7 @@ HttpConnection::Analyse()
         }
     }
     if(error) {
+        LOG_ERROR("internal error");
         return INTERNAL_ERROR;
     }
     //请求不完整需要继续读入

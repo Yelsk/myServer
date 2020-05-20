@@ -10,7 +10,7 @@
 
 ##### Log异步模型：
 
-![log线程](D:\codetest\log线程.png)
+![image](https://github.com/Yelsk/myServer/blob/master/data/log.png)
 
 ##### 其他：
 
@@ -22,10 +22,10 @@
 
 **测试：**
 
-![ServerWithoutLog](D:\codetest\dat\ServerWithoutLog.png)
+![image](https://github.com/Yelsk/myServer/blob/master/data/ServerWithoutLog.png)
 
 在关闭Log功能的情况下进行短连接压力测试，QPS为30585。
 
-![ServerWithLog](D:\codetest\dat\ServerWithLog.png)
+![ServerWithLog](https://github.com/Yelsk/myServer/blob/master/data/ServerWithLog.png)
 
 在开启Log功能的情况下进行短连接压力测试，QPS为9398。

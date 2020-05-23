@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-23 19:51:02
+ * @LastEditTime: 2020-05-23 23:23:33
  * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.cc
  */ 
 
@@ -50,8 +50,6 @@ void
 HttpConnection::Reset()
 {
     read_buffer.clear();
-    request_head_buffer.clear();
-    contentBody.clear();
     url.clear();
     method.clear();
     file_name.clear();
@@ -69,6 +67,16 @@ HttpConnection::seperateTimer()
     {
         timer->clearConn();
         timer = nullptr;
+    }
+}
+
+void
+HttpConnection::unmap()
+{
+    if (m_file_address)
+    {
+        munmap(m_file_address, file_size);
+        m_file_address = 0;
     }
 }
 
@@ -105,17 +113,16 @@ HttpConnection::HandleConn()
 bool
 HttpConnection::HandleWrite()
 {
-    int ret;
-    LOG_INFO("request:%s", request_head_buffer);
-    Log::get_instance()->flush();
-    request_head_buffer += contentBody;
-    int to_write = request_head_buffer.size(), have_write = 0;
+    m_iv_count = 2;
+    int ret = 0, newadd = 0;
+    int to_write = header_size + file_size, have_write = 0;
     while (true)
     {
-        ret = send(client_fd,request_head_buffer.c_str() + have_write,request_head_buffer.size() - have_write, 0);
-        if(ret < 0)
+        ret = writev(client_fd, m_iv, m_iv_count);
+        if(ret > 0)
         {
-            return false;
+            have_write += ret;
+            newadd = have_write - header_size;
         }
         else if(ret < 0)
         {
@@ -123,16 +130,32 @@ HttpConnection::HandleWrite()
             {
                 if(errno == EAGAIN)
                 {
+                    LOG_ERROR("EAGAIN");
+                    if (have_write >= m_iv[0].iov_len)
+                    {
+                        m_iv[0].iov_len = 0;
+                        m_iv[1].iov_base = m_iv[1].iov_base + newadd;
+                        m_iv[1].iov_len = file_size;
+                    }
+                    else
+                    {
+                        m_iv[0].iov_base = m_iv[0].iov_base + have_write;
+                        m_iv[0].iov_len = m_iv[0].iov_len - have_write;
+                    }
+                    epoll->epoll_mod(this);
                     return true;
                 }
+                unmap();
                 return false;
             }
         }
-        else if(ret >= (to_write - have_write))
+        to_write -= ret;
+        if(to_write <= 0)
         {
+            unmap();
+            status = FINISH;
             return true;
         }
-        have_write += ret;
     }
     status = FINISH;
     return true;
@@ -182,30 +205,30 @@ HttpConnection::successful_respond() //200
 {
     if(keep_alive)
     {
-        request_head_buffer =  "HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(KEEP_ALIVE_TIME) + "\r\nContent-length: " + to_string(file_size) + "\r\n\r\n";
+        strcpy(request_head_buffer, string("HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(KEEP_ALIVE_TIME) + "\r\nContent-length: " + to_string(file_size) + "\r\nContent-Type:text/html\r\n\r\n").c_str());
     }
     else
     {
-        request_head_buffer = "HTTP/1.1 200 ok\r\nConnection: close\r\nContent-length: " + to_string(file_size) + "\r\n\r\n";
+        strcpy(request_head_buffer, string("HTTP/1.1 200 ok\r\nConnection: close\r\nContent-length: " + to_string(file_size) + "\r\nContent-Type:text/html\r\n\r\n").c_str());
     }
 }
 
 bool
 HttpConnection::bad_respond() //400
 {
-    request_head_buffer = "HTTP/1.1 400 BAD_REQUESTION\r\nConnection: close\r\nContent-length:" + to_string(file_size) +"\r\n\r\n";
+    strcpy(request_head_buffer, string("HTTP/1.1 400 BAD_REQUESTION\r\nConnection: close\r\nContent-length:" + to_string(file_size) +"\r\nContent-Type:text/html\r\n\r\n").c_str());
 }
 
 bool
 HttpConnection::forbiden_respond() //403
 {
-    request_head_buffer = "HTTP/1.1 403 FORBIDEN\r\nConnection: close\r\nContent-length:" + to_string(file_size) + "\r\n\r\n";
+    strcpy(request_head_buffer, string("HTTP/1.1 403 FORBIDEN\r\nConnection: close\r\nContent-length:" + to_string(file_size) + "\r\nContent-Type:text/html\r\n\r\n").c_str());
 }
 
 bool 
 HttpConnection::not_found_request()//404
 {
-    request_head_buffer = "HTTP/1.1 404 NOT_FOUND\r\nConnection: close\r\nContent-length:" + to_string(file_size) + "\r\n\r\n";
+    strcpy(request_head_buffer, string("HTTP/1.1 404 NOT_FOUND\r\nConnection: close\r\nContent-length:" + to_string(file_size) + "\r\nContent-Type:text/html\r\n\r\n").c_str());
 }
 
 //解析请求行
@@ -348,7 +371,7 @@ HttpConnection::HandleRequest()
         url = "judge.html";
         file_name = path + url;
     }
-    if(method == "POST" && (url[0] == '2' || url[0] == '3'))
+    else if(method == "POST" && (url[0] == '2' || url[0] == '3'))
     {
         int pos = requestContent.find('&');
         string user = requestContent.substr(0, pos);
@@ -388,13 +411,17 @@ HttpConnection::HandleRequest()
             }
         }
     }
-    if(url[0] == '0')
+    else if(url[0] == '0')
     {
         file_name = path + "register.html";
     }
     else if(url[0] == '1')
     {
         file_name = path + "log.html";
+    }
+    else
+    {
+        file_name = path + url;
     }
     struct stat m_file_stat;
     if(stat(file_name.c_str(), &m_file_stat))
@@ -416,9 +443,9 @@ HttpConnection::HandleRequest()
     int fd = open(file_name.c_str(), O_RDONLY);
     m_file_address = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
     close(fd);
-    contentBody = string(m_file_address);
-    munmap((void *)m_file_address, m_file_stat.st_size);
     file_size = m_file_stat.st_size;
+    m_iv[1].iov_base = m_file_address;
+    m_iv[1].iov_len = file_size;
     return retval;
 }
 
@@ -494,6 +521,9 @@ HttpConnection::doit()
         case BAD_REQUESTION: //400
         {
             bad_respond();
+            header_size = strlen(request_head_buffer);
+            m_iv[0].iov_base = request_head_buffer;
+            m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
             break;
@@ -501,6 +531,9 @@ HttpConnection::doit()
         case FORBIDDEN_REQUESTION://403
         {
             forbiden_respond();
+            header_size = strlen(request_head_buffer);
+            m_iv[0].iov_base = request_head_buffer;
+            m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
             break;
@@ -508,6 +541,9 @@ HttpConnection::doit()
         case NOT_FOUND://404
         {
             not_found_request();
+            header_size = strlen(request_head_buffer);
+            m_iv[0].iov_base = request_head_buffer;
+            m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
             break;
@@ -515,6 +551,9 @@ HttpConnection::doit()
         case FILE_REQUESTION://GET文件资源无问题
         {
             successful_respond();
+            header_size = strlen(request_head_buffer);
+            m_iv[0].iov_base = request_head_buffer;
+            m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
             break;

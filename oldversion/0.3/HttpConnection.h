@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-22 23:26:32
+ * @LastEditTime: 2020-05-23 22:29:01
  * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.h
  */ 
 
@@ -23,6 +23,7 @@
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 #include <netinet/in.h>
 #include <sys/mman.h>
 #include "SQLPool.h"
@@ -76,15 +77,14 @@ public:
     }
 private:
     std::string read_buffer;
-    std::string request_head_buffer;
     std::string path;
     std::string file_name;
     std::string method;
     std::string url; //文件名称
     std::string version;
-    std::string contentBody;
     std::string requestContent;
     std::string host;
+    char request_head_buffer[1024];
     int Httpversion;
     int check_index;
     int status;
@@ -102,6 +102,7 @@ private:
     struct iovec m_iv[2];
     int m_iv_count;
     int file_size; //文件大小
+    int header_size;
     Timer *timer;
     TimerQueue *timerQueue;
     MutexLock *lock;
@@ -109,6 +110,7 @@ private:
     MYSQL *mysql;
     SQLPool *sqlpool;
     sockaddr_in m_address;
+    void unmap();
     bool bad_respond();//语法错误请求响应填充
     bool forbiden_respond();//资源权限限制请求响应的填充
     bool successful_respond();//解析成功请求响应填充

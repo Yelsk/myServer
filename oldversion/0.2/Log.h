@@ -38,6 +38,7 @@ public:
 private:
     Log();
     virtual ~Log();
+    
     void *async_write_log();
 
 private:

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-21 19:00:56
+ * @LastEditTime: 2020-05-22 23:26:44
  * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.cc
  */ 
 
@@ -18,6 +18,7 @@ HttpConnection::HttpConnection(int _epfd,
                                                                         string _path,
                                                                         MutexLock *_lock,
                                                                         TimerQueue *_timerQueue,
+                                                                        SQLPool *_sqlpool,
                                                                         sockaddr_in address)
                                                                         :epfd(_epfd),
                                                                         client_fd(_client_fd),
@@ -26,9 +27,9 @@ HttpConnection::HttpConnection(int _epfd,
                                                                         path(_path),
                                                                         lock(_lock),
                                                                         timerQueue(_timerQueue),
+                                                                        sqlpool(_sqlpool),
                                                                         m_address(address),
-                                                                        keep_alive(false),
-                                                                        dynamic_flag(false)
+                                                                        keep_alive(false)
 {
 }
 
@@ -50,11 +51,15 @@ HttpConnection::Reset()
 {
     read_buffer.clear();
     request_head_buffer.clear();
-    post_buffer.clear();
     contentBody.clear();
+    url.clear();
+    method.clear();
+    file_name.clear();
     check_index = 0;
+    contentLength = 0;
     status = REQUETION;
     keep_alive = false;
+    error = false;
 }
 
 void
@@ -97,8 +102,44 @@ HttpConnection::HandleConn()
     return;
 }
 
-size_t
-HttpConnection::myread()
+bool
+HttpConnection::HandleWrite()
+{
+    int ret;
+    LOG_INFO("request:%s", request_head_buffer);
+    Log::get_instance()->flush();
+    request_head_buffer += contentBody;
+    int to_write = request_head_buffer.size(), have_write = 0;
+    while (true)
+    {
+        ret = send(client_fd,request_head_buffer.c_str() + have_write,request_head_buffer.size() - have_write, 0);
+        if(ret < 0)
+        {
+            return false;
+        }
+        else if(ret < 0)
+        {
+            if(ret == -1)
+            {
+                if(errno == EAGAIN)
+                {
+                    return true;
+                }
+                return false;
+            }
+        }
+        else if(ret >= (to_write - have_write))
+        {
+            return true;
+        }
+        have_write += ret;
+    }
+    status = FINISH;
+    return true;
+}
+
+bool
+HttpConnection::HandleRead()
 {
     ssize_t nread = 0;
     ssize_t readCount = 0;
@@ -113,7 +154,7 @@ HttpConnection::myread()
                 return readCount;
             }
             else{
-                perror("read error");
+                LOG_ERROR("read error");
                 return -1;
             }
         }
@@ -121,70 +162,15 @@ HttpConnection::myread()
         readCount += nread;
         read_buffer += std::string(buffer, buffer+nread);
     }
-    return readCount;
-}
-
-bool
-HttpConnection::HandleWrite()
-{
-    if(dynamic_flag)//如果是动态请求，返回填充体
-    {
-        int ret=send(client_fd,request_head_buffer.c_str(),request_head_buffer.size(),0);
-        int r = send(client_fd,contentBody.c_str(),contentBody.size(),0);
-        if(ret>0 && r>0)
-        {
-            status = FINISH;
-            return true;
-        }
-    }
-    else{
-            int ret;
-            LOG_INFO("request:%s", request_head_buffer);
-            Log::get_instance()->flush();
-            request_head_buffer += contentBody;
-            int to_write = request_head_buffer.size(), have_write = 0;
-            while (true)
-            {
-                ret = write(client_fd,request_head_buffer.c_str() + have_write,request_head_buffer.size() - have_write);
-                if(ret < 0)
-                {
-                    return false;
-                }
-                else if(ret < 0)
-                {
-                    if(ret == -1)
-                    {
-                        if(errno == EAGAIN)
-                        {
-                            return true;
-                        }
-                        return false;
-                    }
-                }
-                else if(ret >= (to_write - have_write))
-                {
-                    return true;
-                }
-                have_write += ret;
-            }
-            status = FINISH;
-            return true;
-    }
-    return true;
-}
-
-bool
-HttpConnection::HandleRead()
-{
-    int read_num = myread();
-    if (read_num < 0)
+    if (readCount < 0)
     {
         return false;
     }
-    else if(read_num == 0)
+    else if(readCount == 0)
     {
         // 有请求出现但是读不到数据，可能是Request Aborted，或者来自网络的数据没有达到等原因
         // 最可能是对端已经关闭了，统一按照对端已经关闭处理
+        LOG_INFO("close connection");
         return false;
     }
     return true;
@@ -194,7 +180,6 @@ HttpConnection::HandleRead()
 bool
 HttpConnection::successful_respond() //200
 {
-    dynamic_flag = false;
     if(keep_alive)
     {
         request_head_buffer =  "HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(KEEP_ALIVE_TIME) + "\r\nContent-length: " + to_string(file_size) + "\r\n\r\n";
@@ -208,95 +193,19 @@ HttpConnection::successful_respond() //200
 bool
 HttpConnection::bad_respond() //400
 {
-    file_name = path + "bad_respond.html";
-    struct stat my_file;
-    if(stat(file_name.c_str(), &my_file) < 0)
-    {
-        LOG_INFO("request bad");
-        Log::get_instance()->flush();
-    }
-    file_size = my_file.st_size;
     request_head_buffer = "HTTP/1.1 400 BAD_REQUESTION\r\nConnection: close\r\nContent-length:" + to_string(file_size) +"\r\n\r\n";
 }
 
 bool
 HttpConnection::forbiden_respond() //403
 {
-    file_name = path + "not_found_request.html";
-    struct stat my_file;
-    if(stat(file_name.c_str(),&my_file)<0)
-    {
-        LOG_INFO("get forbiden");
-        Log::get_instance()->flush();
-    }
-    file_size = my_file.st_size;
     request_head_buffer = "HTTP/1.1 403 FORBIDEN\r\nConnection: close\r\nContent-length:" + to_string(file_size) + "\r\n\r\n";
 }
 
 bool 
 HttpConnection::not_found_request()//404
 {
-    file_name = path + "not_found_request.html";
-    //cout << file_name << endl;
-    struct stat my_file;
-    if(stat(file_name.c_str(),&my_file)<0)
-    {
-        LOG_INFO("file not found");
-        Log::get_instance()->flush();
-    }
-    file_size = my_file.st_size;
     request_head_buffer = "HTTP/1.1 404 NOT_FOUND\r\nConnection: close\r\nContent-length:" + to_string(file_size) + "\r\n\r\n";
-}
-
-//动态请求处理
-void
-HttpConnection::dynamic(string &filename, string &argv)
-{
-    int k = 0;
-    int number[2];
-    int sum = 0;
-    dynamic_flag = true;
-    sscanf(argv.c_str(), "a=%db=%d", &number[0], &number[1]);
-    if(file_name == "add")
-    {
-        sum = number[0] + number[1];
-        contentBody = "<html><body>\r\n<p>" + to_string(number[0])  + "+ "+ to_string(number[1]) + "= " + to_string(sum) +" </p><hr>\r\n</body></html>\r\n";
-        if(keep_alive)
-        {
-            request_head_buffer =  "HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(KEEP_ALIVE_TIME) + "\r\nContent-length: " + to_string(contentBody.size()) + "\r\n\r\n";
-        }
-        else
-        {
-            request_head_buffer = "HTTP/1.1 200 ok\r\nConnection: close\r\nContent-length: " + to_string(contentBody.size()) + "\r\n\r\n";
-        }
-    }
-    else if(file_name == "multiplication")
-    {
-        //cout << "\t\t\t\tmultiplication\n\n";
-        sum = number[0]*number[1];
-        contentBody = "<html><body>\r\n<p>" + to_string(number[0])  + "* "+ to_string(number[1]) + "= " + to_string(sum) +" </p><hr>\r\n</body></html>\r\n";
-        if(keep_alive)
-        {
-            request_head_buffer =  "HTTP/1.1 200 ok\r\nConnection: keep-alive\r\nKeep-Alive: timeout=" + to_string(5 * 60 * 1000) + "\r\nContent-length: " + to_string(contentBody.size()) + "\r\n\r\n";
-        }
-        else
-        {
-            request_head_buffer = "HTTP/1.1 200 ok\r\nConnection: close\r\nContent-length: " + to_string(contentBody.size()) + "\r\n\r\n";
-        }
-    }
-}
-
-//POST请求处理
-void
-HttpConnection::post_respond()
-{
-    if((fork()) == 0)
-    {
-        dup2(client_fd, STDOUT_FILENO);
-        execl(file_name.c_str(), argv.c_str(), nullptr);
-    }
-    wait(nullptr);
-    status = FINISH;
 }
 
 //解析请求行
@@ -331,10 +240,6 @@ HttpConnection::RequestionLineParse(string &line)
     {
         return BAD_REQUESTION;
     }
-    if(url.empty())
-    {
-        return BAD_REQUESTION;
-    }
     if(version != "HTTP/1.1")
     {
         return BAD_REQUESTION;
@@ -350,6 +255,10 @@ HttpConnection::HeadersParse(string &line)
     int pos = 0;
     if(line[0] == '\r')
     {
+        if(contentLength != 0){
+            status = CONTENT;
+            return NO_REQUESTION;
+        }
         status = FINISH;
         //获得一个完整http请求
         return GET_REQUESTION;
@@ -389,6 +298,19 @@ HttpConnection::HeadersParse(string &line)
     return NO_REQUESTION;
 }
 
+int
+HttpConnection::ContentParse(string &line)
+{
+    if (read_buffer.size() >= (contentLength + check_index))
+    {
+        requestContent = read_buffer.substr(check_index);
+        //POST请求中最后为输入的用户名和密码
+        status = FINISH;
+        return GET_REQUESTION;
+    }
+    return NO_REQUESTION;
+}
+
 //判断一行是否读取完整
 int
 HttpConnection::JudgeLine(int &check_index)
@@ -417,6 +339,93 @@ HttpConnection::JudgeLine(int &check_index)
     return 0;
 }
 
+//对其请求行进行解析，存写资源路径
+int
+HttpConnection::HandleRequest()
+{
+    int retval = FILE_REQUESTION;
+    if(url.empty()){
+        url = "judge.html";
+        file_name = path + url;
+    }
+    if(method == "POST" && (url[0] == '2' || url[0] == '3'))
+    {
+        int pos = requestContent.find('&');
+        string user = requestContent.substr(0, pos);
+        string password = requestContent.substr(pos+1, contentLength - pos - 1);
+        pos = user.find('=');
+        user = user.substr(pos+1);
+        pos = password.find('=');
+        password = password.substr(pos+1);
+        {
+            connGuard connguard(&mysql, sqlpool);
+            string sql_search = "SELECT username,passwd FROM user WHERE username='" + user + "' AND passwd='" + password + "'";
+            lock->lock();
+            int ret = mysql_query(mysql, sql_search.c_str());
+            lock->unlock();
+            if(url[0] == '2')
+            {
+                if(ret) file_name = path + "logError.html";
+                else file_name = path + "welcome.html";
+            }
+            else if(url[0] == '3')
+            {
+                if(ret)
+                {
+                    string sql_insert = "INSERT INTO user(username, passwd) VALUES('" + user + "', '" + password + "')";
+                    lock->lock();
+                    int res = mysql_query(mysql, sql_insert.c_str());
+                    lock->unlock();
+                    if(res)
+                    {
+                        file_name = path + "registerError.html";
+                    }
+                    else
+                    {
+                        file_name = path + "log.html";
+                    }
+                }
+                else
+                {
+                    file_name += "registerError.html";
+                }
+            }
+        }
+    }
+    if(url[0] == '0')
+    {
+        file_name = path + "register.html";
+    }
+    else if(url[0] == '1')
+    {
+        file_name = path + "log.html";
+    }
+    struct stat m_file_stat;
+    if(stat(file_name.c_str(), &m_file_stat))
+    {
+        file_name = path + "not_found_request.html";
+        retval = NOT_FOUND;
+    }
+    if(!(m_file_stat.st_mode & S_IROTH))
+    {
+        file_name = path + "not_found_request.html";
+        retval = FORBIDDEN_REQUESTION;
+    }
+    if(S_ISDIR(m_file_stat.st_mode))
+    {
+        file_name = path + "bad_respond.html";
+        retval = BAD_REQUESTION;
+    }
+    stat(file_name.c_str(), &m_file_stat);
+    int fd = open(file_name.c_str(), O_RDONLY);
+    m_file_address = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    contentBody = string(m_file_address);
+    munmap((void *)m_file_address, m_file_stat.st_size);
+    file_size = m_file_stat.st_size;
+    return retval;
+}
+
 int
 HttpConnection::Analyse()
 {
@@ -424,7 +433,7 @@ HttpConnection::Analyse()
     int flag;
     int start_line = 0;
     check_index = 0;
-    while((flag = JudgeLine(check_index)) == 1)
+    while(status == CONTENT || (flag = JudgeLine(check_index)) == 1)
     {
         string line = read_buffer.substr(start_line, check_index - start_line - 1);
         start_line = check_index;
@@ -445,20 +454,21 @@ HttpConnection::Analyse()
                 int ret = HeadersParse(line);
                 if(ret==GET_REQUESTION)//获取完整的HTTP请求
                 {
-                    if(method == "GET")
-                    {
-                        return HandleGet();//GET请求文件名分离函数     
-                    }
-                    else if(method == "POST")
-                    {
-                        return HandlePost();//POST请求参数分离函数
-                    }
-                    else{
-                        return BAD_REQUESTION;
-                    }
+                    return HandleRequest();
                 }
+                break;
+            }
+            case CONTENT:
+            {
+                int ret = ContentParse(line);
+                if(ret==GET_REQUESTION)//获取完整的HTTP请求
+                {
+                    return HandleRequest();
+                }
+                break;
             }
             default:
+                return INTERNAL_ERROR;
                 break;
         }
     }
@@ -468,56 +478,6 @@ HttpConnection::Analyse()
     }
     //请求不完整需要继续读入
     return NO_REQUESTION;
-}
-
-//GET方法请求，对其请求行进行解析，存写资源路径
-int
-HttpConnection::HandleGet()
-{
-    int pos = url.find('?');
-    if(pos >= 0)
-    {
-        argv = url.substr(pos+1);
-        file_name = url.substr(0, pos);
-        return DYNAMIC_FILE;
-    }
-    else
-    {
-        file_name = url;
-        struct stat m_file_stat;
-        if(stat(file_name.c_str(), &m_file_stat))
-        {
-            return NOT_FOUND;
-        }
-        if(!(m_file_stat.st_mode & S_IROTH))
-        {
-            return FORBIDDEN_REQUESTION;
-        }
-        if(S_ISDIR(m_file_stat.st_mode))
-        {
-            return BAD_REQUESTION;
-        }
-        int fd = open(file_name.c_str(), O_RDONLY);
-        m_file_address = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-        close(fd);
-        contentBody = string(m_file_address);
-        munmap((void *)m_file_address, m_file_stat.st_size);
-        file_size = m_file_stat.st_size;
-        return FILE_REQUESTION;
-    }
-}
-
-//POST方法请求，分解并且存入参数
-int
-HttpConnection::HandlePost()
-{
-    file_name = url;
-    argv = post_buffer.substr(read_buffer.size() - contentLength);
-    if(!file_name.empty() && !argv.empty())
-    {
-        return POST_FILE;
-    }
-    return BAD_REQUESTION;
 }
 
 //线程取出工作任务的接口函数
@@ -561,18 +521,6 @@ HttpConnection::doit()
             successful_respond();
             events |= EPOLLOUT;
             epoll->epoll_mod(this);
-            break;
-        }
-        case DYNAMIC_FILE: //动态请求处理
-        {
-            dynamic(file_name, argv);
-            events |= EPOLLOUT;
-            epoll->epoll_mod(this);
-            break;
-        }
-        case POST_FILE: //POST 方法处理
-        {
-            post_respond();
             break;
         }
         case FINISH: //长连接短连接处理

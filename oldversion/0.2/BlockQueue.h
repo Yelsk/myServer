@@ -1,9 +1,12 @@
 /*
- * @Author: GanShuang 
- * @Date: 2020-05-16 19:54:46 
- * @Last Modified by: GanShuang
- * @Last Modified time: 2020-05-16 20:28:37
- */
+ * @Author: your name
+ * @Date: 2020-05-16 19:54:29
+ * @LastEditTime: 2020-05-22 20:26:15
+ * @LastEditors: GanShuang
+ * @Description: In User Settings Edit
+ * @FilePath: /myWebServer-master/oldversion/0.2/BlockQueue.h
+ */ 
+
 
 #pragma once
 
@@ -152,6 +155,7 @@ public:
             }
         }
         item = m_queue.front();
+        m_queue.pop_front();
         m_size--;
         m_mutex.unlock();
         return true;

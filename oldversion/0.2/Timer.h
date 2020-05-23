@@ -23,6 +23,7 @@ public:
     ~Timer();
     void update(int timeout);
     bool isvalid();
+    
     void clearConn();
     void setDeleted();
     bool isDeleted() const;

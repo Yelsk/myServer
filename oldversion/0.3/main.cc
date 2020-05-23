@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-21 19:01:28
+ * @LastEditTime: 2020-05-22 20:47:21
  * @FilePath: /myWebServer-master/oldversion/0.3/main.cc
  */ 
 
@@ -26,7 +26,7 @@ using namespace std;
 
 const int PORT = 8888;
 const int LISTENQ = 5;
-const string PATH = "";
+const string PATH = "./WEB/";
 const int EPOLLWAIT_TIME = 500;
 const int TIMER_TIME_OUT = 500;
 extern const int MAXEPOLL;
@@ -86,7 +86,7 @@ socket_bind_listen(const int port, sockaddr_in &address)
 }
 
 void
-acceptConnection(int listen_fd, Epoll *epoll, MutexLock *lock, TimerQueue *timerQueue)
+acceptConnection(int listen_fd, Epoll *epoll, MutexLock *lock, TimerQueue *timerQueue, SQLPool *sqlpool)
 {
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -101,7 +101,7 @@ acceptConnection(int listen_fd, Epoll *epoll, MutexLock *lock, TimerQueue *timer
         }
         // 文件描述符可以读，边缘触发(Edge Triggered)模式，保证一个socket连接在任一时刻只被一个线程处理
         uint32_t events = EPOLLIN | EPOLLRDHUP | EPOLLONESHOT | EPOLLET | EPOLLERR;
-        HttpConnection *conn = new HttpConnection(epoll->getEpollfd(), accept_fd, events, epoll, PATH, lock, timerQueue, client_addr);
+        HttpConnection *conn = new HttpConnection(epoll->getEpollfd(), accept_fd, events, epoll, PATH, lock, timerQueue, sqlpool, client_addr);
         //将连接加入epoll事件表
         epoll->epoll_add(conn);
         //设为非阻塞模式
@@ -127,6 +127,7 @@ void handle_events(MutexLock *lock,
                                             epoll_event* events, 
                                             int events_num, 
                                             TimerQueue *timerQueue, 
+                                            SQLPool *sqlpool,
                                             ThreadPool<HttpConnection> *pool)
 {
     for(int i = 0; i < events_num; i++)
@@ -137,7 +138,7 @@ void handle_events(MutexLock *lock,
         // 有事件发生的描述符为监听描述符
         if(fd == listen_fd)
         {
-            acceptConnection(listen_fd, epoll, lock, timerQueue);
+            acceptConnection(listen_fd, epoll, lock, timerQueue, sqlpool);
         }
         else
         {
@@ -175,7 +176,6 @@ void handle_events(MutexLock *lock,
                 {
                     delete conn;
                 }
-                
             }
         }
     }
@@ -224,6 +224,10 @@ int main(int argc, char *argv[])
     Epoll *epoll = new Epoll();
     TimerQueue *timerQueue = new TimerQueue();
     epoll_event events[10000];
+    SQLPool *sqlpool = SQLPool::get_instance();
+    sqlpool->init("localhost", "gan", "123", "gandb", 3306, 8);
+    LOG_INFO("connect pool success");
+    Log::get_instance()->flush();
     // handle_for_sigpipe();
     struct sockaddr_in address;
     int listen_fd = socket_bind_listen(PORT, address);
@@ -238,7 +242,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     uint32_t event = EPOLLIN | EPOLLET | EPOLLRDHUP | EPOLLERR;
-    HttpConnection *conn = new HttpConnection(epoll->getEpollfd(), listen_fd, event, epoll, PATH, lock, timerQueue, address);
+    HttpConnection *conn = new HttpConnection(epoll->getEpollfd(), listen_fd, event, epoll, PATH, lock, timerQueue, sqlpool, address);
     assert(conn);
     epoll->epoll_add(conn);
     while(true)
@@ -250,7 +254,7 @@ int main(int argc, char *argv[])
             break;
         }
         if(events_num == 0) continue;
-        handle_events(lock, epoll, listen_fd, events, events_num, timerQueue, pool);
+        handle_events(lock, epoll, listen_fd, events, events_num, timerQueue, sqlpool, pool);
         handle_expired_event(lock, timerQueue);
     }
     close(listen_fd);

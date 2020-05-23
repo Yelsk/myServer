@@ -423,7 +423,7 @@ HttpConnection::Analyse()
     int flag;
     int start_line = 0;
     check_index = 0;
-    while(flag = JudgeLine(check_index) == 1)
+    while((flag = JudgeLine(check_index)) == 1)
     {
         string line = read_buffer.substr(start_line, check_index - start_line - 1);
         start_line = check_index;

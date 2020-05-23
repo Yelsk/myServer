@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-22 20:47:21
+ * @LastEditTime: 2020-05-23 17:44:30
  * @FilePath: /myWebServer-master/oldversion/0.3/main.cc
  */ 
 
@@ -30,6 +30,7 @@ const string PATH = "./WEB/";
 const int EPOLLWAIT_TIME = 500;
 const int TIMER_TIME_OUT = 500;
 extern const int MAXEPOLL;
+
 
  //设置非阻塞I/O
 int

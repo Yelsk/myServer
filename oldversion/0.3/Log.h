@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-21 19:01:20
+ * @LastEditTime: 2020-05-23 17:45:40
  * @FilePath: /myWebServer-master/oldversion/0.3/Log.h
  */ 
 
@@ -13,6 +13,9 @@
 #include <string.h>
 #include <stdarg.h>
 #include "BlockQueue.h"
+
+// #define LOG_ENABLE
+#define LOG_DISABLE
 
 using namespace std;
 
@@ -55,7 +58,20 @@ private:
     MutexLock m_mutex;
 };
 
+#ifdef LOG_ENABLE
+
 #define LOG_DEBUG(format, ...) Log::get_instance()->write_log(0, format, ##__VA_ARGS__)
 #define LOG_INFO(format, ...) Log::get_instance()->write_log(1, format, ##__VA_ARGS__)
 #define LOG_WARN(format, ...) Log::get_instance()->write_log(2, format, ##__VA_ARGS__)
 #define LOG_ERROR(format, ...) Log::get_instance()->write_log(3, format, ##__VA_ARGS__)
+
+#endif
+
+#ifdef LOG_DISABLE
+
+#define LOG_DEBUG(format, ...) {}
+#define LOG_INFO(format, ...) {}
+#define LOG_WARN(format, ...) {}
+#define LOG_ERROR(format, ...) {}
+
+#endif

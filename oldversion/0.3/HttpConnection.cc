@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-22 23:26:44
+ * @LastEditTime: 2020-05-23 19:51:02
  * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.cc
  */ 
 
@@ -360,9 +360,7 @@ HttpConnection::HandleRequest()
         {
             connGuard connguard(&mysql, sqlpool);
             string sql_search = "SELECT username,passwd FROM user WHERE username='" + user + "' AND passwd='" + password + "'";
-            lock->lock();
             int ret = mysql_query(mysql, sql_search.c_str());
-            lock->unlock();
             if(url[0] == '2')
             {
                 if(ret) file_name = path + "logError.html";
@@ -373,9 +371,7 @@ HttpConnection::HandleRequest()
                 if(ret)
                 {
                     string sql_insert = "INSERT INTO user(username, passwd) VALUES('" + user + "', '" + password + "')";
-                    lock->lock();
                     int res = mysql_query(mysql, sql_insert.c_str());
-                    lock->unlock();
                     if(res)
                     {
                         file_name = path + "registerError.html";

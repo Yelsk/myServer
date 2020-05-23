@@ -1,3 +1,10 @@
+<!--
+ * @Author: GanShuang
+ * @Date: 2020-05-21 11:44:44
+ * @LastEditors: GanShuang
+ * @LastEditTime: 2020-05-23 20:43:58
+ * @FilePath: /myWebServer-master/oldversion/0.2/README.md
+--> 
 # 0.2版 C++ Web Server
 
 #### 0.2版增加功能实现：
@@ -10,7 +17,7 @@
 
 ##### Log异步模型：
 
-![image](https://github.com/Yelsk/myServer/blob/master/data/log.png)
+![image](https://github.com/Yelsk/myServer/blob/master/data/log.jpg)
 
 ##### 其他：
 
@@ -22,10 +29,10 @@
 
 **测试：**
 
-![image](https://github.com/Yelsk/myServer/blob/master/data/ServerWithoutLog.png)
+![image](https://github.com/Yelsk/myServer/blob/master/data/ServerWithoutLog_0.2.png)
 
 在关闭Log功能的情况下进行短连接压力测试，QPS为30585。
 
-![ServerWithLog](https://github.com/Yelsk/myServer/blob/master/data/ServerWithLog.png)
+![ServerWithLog](https://github.com/Yelsk/myServer/blob/master/data/ServerWithLog_0.2.png)
 
 在开启Log功能的情况下进行短连接压力测试，QPS为9398。

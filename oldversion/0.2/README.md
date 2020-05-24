@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 11:44:44
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-23 20:43:58
+ * @LastEditTime: 2020-05-24 15:54:23
  * @FilePath: /myWebServer-master/oldversion/0.2/README.md
 --> 
 # 0.2版 C++ Web Server
@@ -28,6 +28,10 @@
   - 文件流的写入也需要加锁。
 
 **测试：**
+
+CPU: i5-4210M
+
+内存: 8G
 
 ![image](https://github.com/Yelsk/myServer/blob/master/data/ServerWithoutLog_0.2.png)
 

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-23 20:41:29
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-23 20:43:45
+ * @LastEditTime: 2020-05-24 15:54:41
  * @FilePath: /myWebServer-master/oldversion/0.3/README.md
 --> 
 # 0.3版 C++ Web Server
@@ -21,6 +21,10 @@
 - 长连接的实现就是延长HttpConnection对象的定时器时间。
 
 **测试：**
+
+CPU: i5-4210M
+
+内存: 8G
 
 ![image](https://github.com/Yelsk/myServer/blob/master/data/ServerWithoutLog_0.3.png)
 

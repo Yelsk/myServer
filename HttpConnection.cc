@@ -2,8 +2,8 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-23 23:23:33
- * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.cc
+ * @LastEditTime: 2020-05-27 16:50:19
+ * @FilePath: /myWebServer-master/HttpConnection.cc
  */ 
 
 #include "Log.h"
@@ -11,36 +11,34 @@
 
 using namespace std;
 
-HttpConnection::HttpConnection(int _epfd,
-                                                                        int _client_fd,
-                                                                        int _events,
-                                                                        Epoll *_epoll,
-                                                                        string _path,
-                                                                        MutexLock *_lock,
-                                                                        TimerQueue *_timerQueue,
-                                                                        SQLPool *_sqlpool,
-                                                                        sockaddr_in address)
-                                                                        :epfd(_epfd),
-                                                                        client_fd(_client_fd),
-                                                                        events(_events),
-                                                                        epoll(_epoll),
-                                                                        path(_path),
-                                                                        lock(_lock),
-                                                                        timerQueue(_timerQueue),
-                                                                        sqlpool(_sqlpool),
-                                                                        m_address(address),
-                                                                        keep_alive(false)
+HttpConnection::HttpConnection(int client_fd_,
+    EventLoop *loop_,
+    string path_,
+    SQLPool *sqlpool_,
+    sockaddr_in address_)
+    : client_fd(client_fd_),
+    m_loop(loop_),
+    path(path_),
+    m_sqlpool(sqlpool_),
+    m_address(address_),
+    m_channel(new Channel(loop_, client_fd_)),
+    keep_alive(false),
+    error(false),
+    conn_state(CONNECTED)
 {
+    m_channel->setReadHandler(bind(&HttpConnection::HandleRead, this));
+    m_channel->setWriteHandler(bind(&HttpConnection::HandleWrite, this));
+    m_channel->setConnHandler(bind(&HttpConnection::HandleConn, this));
 }
 
 HttpConnection::~HttpConnection()
 {
     //cout << "~HttpConnection()" << endl;
-    epoll->epoll_del(this);
-    if (timer != NULL)
+    m_loop->removeFromPoller(m_channel);
+    if (m_timer != NULL)
     {
-        timer->clearConn();
-        timer = NULL;
+        m_timer->clearConn();
+        m_timer = NULL;
     }
     close(client_fd);
     client_fd = -1;
@@ -55,18 +53,26 @@ HttpConnection::Reset()
     file_name.clear();
     check_index = 0;
     contentLength = 0;
+    events = EPOLLIN | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP;
     status = REQUETION;
     keep_alive = false;
     error = false;
 }
 
 void
+HttpConnection::newEvent()
+{
+    m_channel->setEvents(EPOLLIN | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP);
+    m_loop->addToPoller(m_channel, TIMER_EXPIRE_TIME);
+}
+
+void
 HttpConnection::seperateTimer()
 {
-    if(timer)
+    if(m_timer)
     {
-        timer->clearConn();
-        timer = nullptr;
+        m_timer->clearConn();
+        m_timer = nullptr;
     }
 }
 
@@ -83,35 +89,40 @@ HttpConnection::unmap()
 void
 HttpConnection::HandleConn()
 {
-    if(keep_alive)
+    seperateTimer();
+    int timeout = TIMER_EXPIRE_TIME;
+    if(conn_state == HANDLEREAD)
     {
-        Reset();
-        timer = new Timer(this, KEEP_ALIVE_TIME);
+        if(keep_alive) timeout = KEEP_ALIVE_TIME;
+        events = EPOLLIN | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP;
+        m_channel->setEvents(events);
+        m_loop->updatePoller(m_channel, timeout);
     }
-    else
+    else if(conn_state == HANDLEWRITE)
     {
-        LOG_INFO("close connection");
-        Log::get_instance()->flush();
-        delete this;
-        return;
+        if(status == FINISH)
+        {
+            if(keep_alive)
+            {
+                Reset();
+                timeout = KEEP_ALIVE_TIME;
+                events = EPOLLOUT | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP;
+                m_channel->setEvents(events);
+                m_loop->updatePoller(m_channel, timeout);
+            }
+            else
+            {
+                LOG_INFO("close connection");
+                Log::get_instance()->flush();
+                delete this;
+                return;
+            }
+        }
     }
-    lock->lock();
-    timerQueue->addTimer(timer);
-    lock->unlock();
-    events = EPOLLIN | EPOLLRDHUP | EPOLLONESHOT | EPOLLET | EPOLLERR;
-    int ret = epoll->epoll_mod(this);
-    if (ret < 0)
-    {
-        // 返回错误处理
-        LOG_ERROR("epoll error");
-        delete this;
-        return;
-    }
-    return;
 }
 
 bool
-HttpConnection::HandleWrite()
+HttpConnection::myWrite()
 {
     m_iv_count = 2;
     int ret = 0, newadd = 0;
@@ -142,7 +153,7 @@ HttpConnection::HandleWrite()
                         m_iv[0].iov_base = m_iv[0].iov_base + have_write;
                         m_iv[0].iov_len = m_iv[0].iov_len - have_write;
                     }
-                    epoll->epoll_mod(this);
+                    m_loop->updatePoller(m_channel, TIMER_UPDATE_TIME);
                     return true;
                 }
                 unmap();
@@ -162,7 +173,7 @@ HttpConnection::HandleWrite()
 }
 
 bool
-HttpConnection::HandleRead()
+HttpConnection::myRead()
 {
     ssize_t nread = 0;
     ssize_t readCount = 0;
@@ -181,7 +192,10 @@ HttpConnection::HandleRead()
                 return -1;
             }
         }
-        else if(nread == 0) break; //可能是对端断开连接，读到EOF，读取端应断开连接
+        else if(nread == 0){
+            conn_state = DISCONNECTED;
+            break;
+        }
         readCount += nread;
         read_buffer += std::string(buffer, buffer+nread);
     }
@@ -197,6 +211,41 @@ HttpConnection::HandleRead()
         return false;
     }
     return true;
+}
+
+void
+HttpConnection::HandleRead()
+{
+    if(myRead())
+    {
+        conn_state = HANDLEREAD;
+        doit();
+        return;
+    }
+    else
+    {
+        LOG_INFO("close connection");
+        Log::get_instance()->flush();
+        delete this;
+        return;
+    }
+}
+
+void
+HttpConnection::HandleWrite()
+{
+    if(myWrite())
+    {
+        conn_state = HANDLEWRITE;
+        return;
+    }
+    else
+    {
+        LOG_INFO("close connection");
+        Log::get_instance()->flush();
+        delete this;
+        return;
+    }
 }
 
 //响应状态的填充
@@ -381,9 +430,9 @@ HttpConnection::HandleRequest()
         pos = password.find('=');
         password = password.substr(pos+1);
         {
-            connGuard connguard(&mysql, sqlpool);
+            connGuard connguard(&m_mysql, m_sqlpool);
             string sql_search = "SELECT username,passwd FROM user WHERE username='" + user + "' AND passwd='" + password + "'";
-            int ret = mysql_query(mysql, sql_search.c_str());
+            int ret = mysql_query(m_mysql, sql_search.c_str());
             if(url[0] == '2')
             {
                 if(ret) file_name = path + "logError.html";
@@ -394,7 +443,7 @@ HttpConnection::HandleRequest()
                 if(ret)
                 {
                     string sql_insert = "INSERT INTO user(username, passwd) VALUES('" + user + "', '" + password + "')";
-                    int res = mysql_query(mysql, sql_insert.c_str());
+                    int res = mysql_query(m_mysql, sql_insert.c_str());
                     if(res)
                     {
                         file_name = path + "registerError.html";
@@ -515,7 +564,8 @@ HttpConnection::doit()
         {
             //将fd属性再次改为可读，让epoll进行监听
             events |= EPOLLIN;
-            epoll->epoll_mod(this);
+            m_channel->setEvents(events);
+            m_loop->updatePoller(m_channel);
             return;
         }
         case BAD_REQUESTION: //400
@@ -525,7 +575,8 @@ HttpConnection::doit()
             m_iv[0].iov_base = request_head_buffer;
             m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
-            epoll->epoll_mod(this);
+            m_channel->setEvents(events);
+            m_loop->updatePoller(m_channel);
             break;
         }
         case FORBIDDEN_REQUESTION://403
@@ -535,7 +586,8 @@ HttpConnection::doit()
             m_iv[0].iov_base = request_head_buffer;
             m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
-            epoll->epoll_mod(this);
+            m_channel->setEvents(events);
+            m_loop->updatePoller(m_channel);
             break;
         }
         case NOT_FOUND://404
@@ -545,7 +597,8 @@ HttpConnection::doit()
             m_iv[0].iov_base = request_head_buffer;
             m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
-            epoll->epoll_mod(this);
+            m_channel->setEvents(events);
+            m_loop->updatePoller(m_channel);
             break;
         }
         case FILE_REQUESTION://GET文件资源无问题
@@ -555,7 +608,8 @@ HttpConnection::doit()
             m_iv[0].iov_base = request_head_buffer;
             m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
-            epoll->epoll_mod(this);
+            m_channel->setEvents(events);
+            m_loop->updatePoller(m_channel);
             break;
         }
         case FINISH: //长连接短连接处理

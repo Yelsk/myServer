@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-26 17:41:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 17:52:40
+ * @LastEditTime: 2020-05-26 20:58:34
  * @FilePath: /myWebServer-master/EventLoopThreadPool.h
  */ 
 
@@ -33,11 +33,3 @@ private:
     std::vector<EventLoopThread *> m_threads;
     std::vector<EventLoop *> m_loops;
 };
-
-EventLoopThreadPool::EventLoopThreadPool(/* args */)
-{
-}
-
-EventLoopThreadPool::~EventLoopThreadPool()
-{
-}

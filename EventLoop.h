@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 11:32:50
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 17:20:54
+ * @LastEditTime: 2020-05-27 11:36:38
  * @FilePath: /myWebServer-master/EventLoop.h
  */ 
 
@@ -12,6 +12,7 @@
 #include <memory>
 #include <sys/eventfd.h>
 #include <assert.h>
+#include <functional>
 #include "Channel.h"
 #include "CurrentThread.h"
 #include "Thread.h"
@@ -29,10 +30,18 @@ public:
     void quit();
     void runInLoop(Functor &&func);
     void queueInLoop(Functor &&func);
-    void shutdown(Channel *channel) { shutDownWR(channel->getFd()); }
+    void shutdown(Channel *channel) { shutdownwr(channel->getFd()); }
     void assertInLoopThread() { assert(isInLoopThread()); }
     bool isInLoopThread() { return m_threadId == CurrentThread::tid(); }
-
+    void removeFromPoller(Channel *channel) {
+        m_poller->epoll_del(channel);
+    }
+    void updatePoller(Channel *channel, int timeout = 0) {
+        m_poller->epoll_mod(channel, timeout);
+    }
+    void addToPoller(Channel *channel, int timeout = 0) {
+        m_poller->epoll_add(channel, timeout);
+    }
 private:
     bool m_looping;
     bool m_quit;

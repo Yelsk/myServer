@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 10:21:49
+ * @LastEditTime: 2020-05-27 14:52:52
  * @FilePath: /myWebServer-master/Timer.cc
  */ 
 
@@ -114,9 +114,9 @@ TimerQueue::addTimer(Timer *timer)
 }
 
 void
-TimerQueue::addTimer(HttpConnection *_conn, int timeout)
+TimerQueue::addTimer(shared_ptr<HttpConnection> conn_, int timeout)
 {
-    Timer *timer = new Timer(_conn, timeout);
+    Timer *timer = new Timer(conn_, timeout);
     m_queue.push(timer);
 }
 

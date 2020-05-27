@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 10:20:41
+ * @LastEditTime: 2020-05-27 14:52:35
  * @FilePath: /myWebServer-master/Timer.h
  */ 
 
@@ -18,9 +18,9 @@ class Timer
 private:
     bool m_deleted;
     size_t expired_time;
-    HttpConnection *m_conn;
+    shared_ptr<HttpConnection> m_conn;
 public:
-    Timer(HttpConnection *conn_, int timeout);
+    Timer(shared_ptr<HttpConnection> conn_, int timeout);
     ~Timer();
     void update(int timeout);
     bool isValid();
@@ -47,6 +47,6 @@ public:
     TimerQueue();
     ~TimerQueue();
     void addTimer(Timer *timer);
-    void addTimer(HttpConnection *_conn, int timeout);
+    void addTimer(shared_ptr<HttpConnection> conn_, int timeout);
     void handleExpired();
 };

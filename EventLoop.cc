@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 21:12:44
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 12:20:15
+ * @LastEditTime: 2020-05-27 11:37:46
  * @FilePath: /myWebServer-master/EventLoop.cc
  */ 
 
@@ -76,7 +76,7 @@ EventLoop::loop()
     m_looping = true;
     m_quit = false;
     std::vector<Channel *> ret;
-    while(!quit){
+    while(!m_quit){
         ret.clear();
         ret = m_poller->poll();
         m_eventHandling = true;

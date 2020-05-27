@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 22:29:16
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 09:53:50
+ * @LastEditTime: 2020-05-27 14:50:07
  * @FilePath: /myWebServer-master/Channel.h
  */ 
 
@@ -20,7 +20,7 @@ class Channel : NonCopyable
 private:
     typedef std::function<void()> CallBack;
     EventLoop *m_loop;
-    HttpConnection *m_conn;
+    std::weak_ptr<HttpConnection> m_conn;
     int m_fd;
     uint32_t m_events;
 
@@ -30,8 +30,11 @@ public:
     ~Channel();
     int getFd() { return m_fd; }
     void setFd(int fd) { m_fd = fd; }
-    void setConn(HttpConnection *conn) {m_conn = conn; }
-    HttpConnection *getConn() { return m_conn; }
+    void setConn(std::shared_ptr<HttpConnection> conn) {m_conn = conn; }
+    std::shared_ptr<HttpConnection> getConn() {
+        std::shared_ptr<HttpConnection> conn(m_conn.lock());
+        return conn;
+    }
 
     void setReadHandler(CallBack &&readHandler_) { m_readHandler = readHandler_; }
     void setWriteHandler(CallBack &&writeHandler_) { m_writeHandler = writeHandler_; }

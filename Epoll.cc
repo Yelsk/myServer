@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 16:39:29
+ * @LastEditTime: 2020-05-27 14:53:02
  * @FilePath: /myWebServer-master/Epoll.cc
  */ 
 
@@ -129,7 +129,7 @@ Epoll::getEventsRequest(int events_count)
 void
 Epoll::add_timer(Channel *req_data, int timeout)
 {
-    HttpConnection *conn = req_data->getConn();
+    shared_ptr<HttpConnection> conn = req_data->getConn();
     if(conn)
     {
         timerQueue.addTimer(conn, timeout);

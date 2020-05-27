@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-26 10:40:36
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 17:18:54
+ * @LastEditTime: 2020-05-27 11:37:22
  * @FilePath: /myWebServer-master/Util.cc
  */ 
 
@@ -40,7 +40,7 @@ handle_for_sigpipe()
 }
 
 int
-socket_bind_listen(const int port, sockaddr_in &address)
+socket_bind_listen(const int port)
 {
     //检查port是否合法
     if(port < 1024 || port > 65535) return -1;
@@ -48,12 +48,12 @@ socket_bind_listen(const int port, sockaddr_in &address)
     //创建socket(IPv4 + TCP)，返回监听fd
     int listen_fd = 0;
     if((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) return -1;
-
     //消除bind时"Address already"
     // int optval = 1;
     // if(setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1) return -1;
  
     //设置监听IP和PORT，并与监听fd绑定
+    sockaddr_in address;
     bzero(&address, sizeof(address));
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = htons(INADDR_ANY);
@@ -71,7 +71,11 @@ socket_bind_listen(const int port, sockaddr_in &address)
     return listen_fd;
 }
 
-void shutDownWR(int fd) {
-  shutdown(fd, SHUT_WR);
-  // printf("shutdown\n");
+void shutdownwr(int fd) {
+    shutdown(fd, SHUT_WR);
+}
+
+void setsocketnodelay(int fd) {
+    int enable = 1;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void *)&enable, sizeof(enable));
 }

@@ -2,16 +2,17 @@
  * @Author: GanShuang
  * @Date: 2020-05-26 16:47:58
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 17:31:55
+ * @LastEditTime: 2020-05-26 21:59:44
  * @FilePath: /myWebServer-master/EventLoopThread.cc
  */ 
 
 #include "EventLoopThread.h"
+#include <functional>
 
 EventLoopThread::EventLoopThread()
     : m_loop(nullptr),
     m_exiting(false),
-    m_thread(bind(&EventLoopThread::threadFunc, this), "EventLoopThread"),
+    m_thread(std::bind(&EventLoopThread::threadFunc, this), "EventLoopThread"),
     m_mutex(),
     m_cond(m_mutex)
 {

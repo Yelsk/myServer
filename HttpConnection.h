@@ -2,8 +2,8 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-23 22:29:01
- * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.h
+ * @LastEditTime: 2020-05-27 16:50:34
+ * @FilePath: /myWebServer-master/HttpConnection.h
  */ 
 
 #pragma once
@@ -29,11 +29,14 @@
 #include "SQLPool.h"
 #include "Timer.h"
 #include "Epoll.h"
+#include "EventLoop.h"
 #include "MutexLock.h"
+#include "Channel.h"
 
 const int MAX_BUFF = 4096;
 const int KEEP_ALIVE_TIME = 5 * 60 * 1000;
 const int TIMER_UPDATE_TIME = 500;
+const int TIMER_EXPIRE_TIME = 2000;
 
 //HTTPCODE
 const int INTERNAL_ERROR = -1;
@@ -51,30 +54,39 @@ const int REQUETION = 9;
 const int CONTENT = 10;
 const int FINISH = 11;
 
-class HttpConnection
+//CONNECTIONSTATE
+const int CONNECTED = 12;
+const int DISCONNECTED = 13;
+const int HANDLEREAD = 14;
+const int HANDLEWRITE = 15;
+
+class HttpConnection : std::enable_shared_from_this<HttpConnection>
 {
 public:
-    HttpConnection(int _epfd, int _client_fd, int _events, Epoll *_epoll, std::string _path, MutexLock *_lock, TimerQueue *_timerQueue, SQLPool *_sqlpool, sockaddr_in address);
+    HttpConnection(int client_fd_, EventLoop *loop_,std::string path_, SQLPool *sqlpool_, sockaddr_in address_);
     ~HttpConnection();
     int epfd;
     int client_fd;
     int events;
     int read_count;
-    bool HandleRead();
-    bool HandleWrite();//响应发送
+    bool myRead();
+    bool myWrite();
+    void HandleRead();
+    void HandleWrite();//响应发送
     void HandleConn();
     void Reset();
     void doit();//线程接口函数
-    void close_coon();//关闭客户端链接
-    int getFd() {return client_fd;}
-    int getEvents(){return events;}
-    void setEvents(int _events) {events = _events;}
-    void addTimer(Timer *_timer) {timer = _timer;}
     void seperateTimer();
-    sockaddr_in *get_address()
-    {
-        return &m_address;
-    }
+    Channel *getChannel() { return m_channel; }
+    EventLoop *getLoop() { return m_loop; }
+    sockaddr_in *getAddress() { return &m_address; }
+    void newEvent();
+private:
+    EventLoop *m_loop;
+    Channel *m_channel;
+    Timer *m_timer;
+    MYSQL *m_mysql;
+    SQLPool *m_sqlpool;
 private:
     std::string read_buffer;
     std::string path;
@@ -84,6 +96,7 @@ private:
     std::string version;
     std::string requestContent;
     std::string host;
+    int conn_state;
     char request_head_buffer[1024];
     int Httpversion;
     int check_index;
@@ -103,12 +116,6 @@ private:
     int m_iv_count;
     int file_size; //文件大小
     int header_size;
-    Timer *timer;
-    TimerQueue *timerQueue;
-    MutexLock *lock;
-    Epoll *epoll;
-    MYSQL *mysql;
-    SQLPool *sqlpool;
     sockaddr_in m_address;
     void unmap();
     bool bad_respond();//语法错误请求响应填充

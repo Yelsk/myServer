@@ -2,17 +2,18 @@
  * @Author: GanShuang
  * @Date: 2020-05-26 16:47:47
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 17:38:26
+ * @LastEditTime: 2020-05-26 21:18:28
  * @FilePath: /myWebServer-master/EventLoopThread.h
  */ 
 
 #pragma once
 
-#include "EventLoop.h"
+
 #include "Condition.h"
 #include "MutexLock.h"
 #include "Thread.h"
 #include "NonCopyable.h"
+#include "EventLoop.h"
 
 class EventLoopThread : NonCopyable
 {

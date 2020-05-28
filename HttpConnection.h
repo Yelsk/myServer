@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 16:50:34
+ * @LastEditTime: 2020-05-28 17:19:09
  * @FilePath: /myWebServer-master/HttpConnection.h
  */ 
 
@@ -65,10 +65,6 @@ class HttpConnection : std::enable_shared_from_this<HttpConnection>
 public:
     HttpConnection(int client_fd_, EventLoop *loop_,std::string path_, SQLPool *sqlpool_, sockaddr_in address_);
     ~HttpConnection();
-    int epfd;
-    int client_fd;
-    int events;
-    int read_count;
     bool myRead();
     bool myWrite();
     void HandleRead();
@@ -81,6 +77,10 @@ public:
     EventLoop *getLoop() { return m_loop; }
     sockaddr_in *getAddress() { return &m_address; }
     void newEvent();
+private:
+    int client_fd;
+    int events;
+    int read_count;
 private:
     EventLoop *m_loop;
     Channel *m_channel;

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 21:12:44
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 11:37:46
+ * @LastEditTime: 2020-05-28 11:23:13
  * @FilePath: /myWebServer-master/EventLoop.cc
  */ 
 
@@ -37,6 +37,7 @@ EventLoop::EventLoop()
 {
     LOG_INFO("EventLoop created %p in thread %d", this, m_threadId);
     Log::get_instance()->flush();
+    
     if(t_loopInThisThread)
     {
         LOG_ERROR("Another EventLoop %p exists in this thread %d", t_loopInThisThread, m_threadId);

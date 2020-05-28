@@ -1,10 +1,10 @@
 /*
  * @Author: your name
  * @Date: 2020-05-16 19:54:29
- * @LastEditTime: 2020-05-22 20:25:15
+ * @LastEditTime: 2020-05-27 19:09:19
  * @LastEditors: GanShuang
  * @Description: In User Settings Edit
- * @FilePath: /myWebServer-master/oldversion/0.3/BlockQueue.h
+ * @FilePath: /myWebServer-master/BlockQueue.h
  */ 
 
 
@@ -25,6 +25,7 @@ class BlockQueue
 {
 public:
     BlockQueue(int max_size = 1000)
+        :m_cond(m_mutex)
     {
         if(max_size <= 0)
         {
@@ -126,7 +127,7 @@ public:
         if (m_size >= m_max_size)
         {
 
-            m_cond.broadcast();
+            m_cond.notifyAll();
             m_mutex.unlock();
             return false;
         }
@@ -135,7 +136,7 @@ public:
 
         m_size++;
 
-        m_cond.broadcast();
+        m_cond.notifyAll();
         m_mutex.unlock();
         return true;
     }
@@ -148,7 +149,7 @@ public:
         while (m_size <= 0)
         {
             
-            if (!m_cond.wait(m_mutex.get()))
+            if (!m_cond.wait())
             {
                 m_mutex.unlock();
                 return false;
@@ -164,7 +165,6 @@ public:
 private:
     MutexLock m_mutex;
     Condition m_cond;
-
     deque<T> m_queue;
     int m_size;
     int m_max_size;

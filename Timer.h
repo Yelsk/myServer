@@ -2,12 +2,13 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 14:52:35
+ * @LastEditTime: 2020-05-27 18:57:11
  * @FilePath: /myWebServer-master/Timer.h
  */ 
 
 #pragma once
 
+#include <memory>
 #include <sys/time.h>
 #include <queue>
 
@@ -18,9 +19,9 @@ class Timer
 private:
     bool m_deleted;
     size_t expired_time;
-    shared_ptr<HttpConnection> m_conn;
+    std::shared_ptr<HttpConnection> m_conn;
 public:
-    Timer(shared_ptr<HttpConnection> conn_, int timeout);
+    Timer(std::shared_ptr<HttpConnection> conn_, int timeout);
     ~Timer();
     void update(int timeout);
     bool isValid();
@@ -47,6 +48,6 @@ public:
     TimerQueue();
     ~TimerQueue();
     void addTimer(Timer *timer);
-    void addTimer(shared_ptr<HttpConnection> conn_, int timeout);
+    void addTimer(std::shared_ptr<HttpConnection> conn_, int timeout);
     void handleExpired();
 };

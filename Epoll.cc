@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 14:53:02
+ * @LastEditTime: 2020-05-28 15:32:07
  * @FilePath: /myWebServer-master/Epoll.cc
  */ 
 
@@ -15,7 +15,8 @@ const int EPOLLWAIT_TIME = 10000;
 
 Epoll::Epoll()
     : epfd(epoll_create1(EPOLL_CLOEXEC)),
-    m_events(EVENTSNUM)
+    m_events(EVENTSNUM),
+    m_channels(MAXFDS, nullptr)
 {
     assert(epfd > 0);
 }
@@ -45,6 +46,7 @@ Epoll::epoll_add(Channel *request, int timeout)
     int fd = request->getFd();
     if(timeout > 0){
         add_timer(request, timeout);
+        m_conns[fd] = request->getConn();
     }
     struct epoll_event event;
     event.data.fd = fd;
@@ -89,7 +91,6 @@ Epoll::epoll_del(Channel *request)
         return 0;
     }
     delete m_channels[fd];
-    delete m_conns[fd];
     return 1;
 }
 

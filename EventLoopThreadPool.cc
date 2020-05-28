@@ -21,6 +21,16 @@ EventLoopThreadPool::EventLoopThreadPool(EventLoop *baseLoop, int numThreads)
     }
 }
 
+EventLoopThreadPool::~EventLoopThreadPool()
+{
+    for(int i = 0; i < m_numThreads; i++)
+    {
+        EventLoopThread *thread = m_threads[i];
+        delete thread;
+        thread = nullptr;
+    }
+}
+
 void
 EventLoopThreadPool::start()
 {

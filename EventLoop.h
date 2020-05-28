@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 11:32:50
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 11:36:38
+ * @LastEditTime: 2020-05-28 11:25:16
  * @FilePath: /myWebServer-master/EventLoop.h
  */ 
 
@@ -48,9 +48,11 @@ private:
     bool m_eventHandling;
     bool m_callingPendingFunc;
     const pid_t m_threadId;
+    //声明顺序m_wakeupFd > m_wakeupChannel
+    //否则m_wakeupChannel(new Channel(this, m_wakeupFd))会先于m_wakeupFd初始化
+    int m_wakeupFd;
     Epoll *m_poller;
     Channel *m_wakeupChannel;
-    int m_wakeupFd;
     mutable MutexLock m_mutex;
     std::vector<Functor> m_pendingFuncs;
     void wakeup();

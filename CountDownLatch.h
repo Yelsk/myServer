@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 19:38:20
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-25 19:53:48
+ * @LastEditTime: 2020-05-27 19:36:09
  * @FilePath: /myWebServer-master/CountDownLatch.h
  */ 
 
@@ -23,7 +23,7 @@ public:
                                                         : m_mutex(),
                                                         m_cond(m_mutex),
                                                         m_count(count) {}
-    ~CountDownLatch();
+    ~CountDownLatch() {}
     void wait() {
         MutexLockGuard lock(m_mutex);
         while(m_count > 0) m_cond.wait();

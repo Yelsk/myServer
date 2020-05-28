@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-27 10:57:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 14:14:07
+ * @LastEditTime: 2020-05-27 19:31:28
  * @FilePath: /myWebServer-master/WebServer.h
  */ 
 
@@ -20,7 +20,7 @@ class WebServer
 {
 public:
     WebServer(EventLoop *loop_, SQLPool *sqlpool_, std::string path_, int threadNum_, int port_);
-    ~WebServer();
+    ~WebServer() {}
     EventLoop *getLoop() { return m_loop; }
     void start();
     void handleNewConn();

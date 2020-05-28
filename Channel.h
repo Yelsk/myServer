@@ -2,12 +2,13 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 22:29:16
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 14:50:07
+ * @LastEditTime: 2020-05-27 18:55:32
  * @FilePath: /myWebServer-master/Channel.h
  */ 
 
 #pragma once
 
+#include <memory>
 #include <sys/epoll.h>
 #include <functional>
 #include "NonCopyable.h"

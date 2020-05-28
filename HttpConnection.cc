@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 16:50:19
+ * @LastEditTime: 2020-05-28 15:34:33
  * @FilePath: /myWebServer-master/HttpConnection.cc
  */ 
 
@@ -40,8 +40,6 @@ HttpConnection::~HttpConnection()
         m_timer->clearConn();
         m_timer = NULL;
     }
-    close(client_fd);
-    client_fd = -1;
 }
 
 void
@@ -93,6 +91,8 @@ HttpConnection::HandleConn()
     int timeout = TIMER_EXPIRE_TIME;
     if(conn_state == HANDLEREAD)
     {
+        LOG_DEBUG("read finish");
+        Log::get_instance()->flush();
         if(keep_alive) timeout = KEEP_ALIVE_TIME;
         events = EPOLLIN | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP;
         m_channel->setEvents(events);
@@ -102,6 +102,8 @@ HttpConnection::HandleConn()
     {
         if(status == FINISH)
         {
+            LOG_DEBUG("write finish");
+            Log::get_instance()->flush();
             if(keep_alive)
             {
                 Reset();
@@ -117,6 +119,13 @@ HttpConnection::HandleConn()
                 delete this;
                 return;
             }
+        }
+        else
+        {
+            if(keep_alive) timeout = KEEP_ALIVE_TIME;
+            events = EPOLLOUT | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP;
+            m_channel->setEvents(events);
+            m_loop->updatePoller(m_channel, timeout);
         }
     }
 }
@@ -193,7 +202,6 @@ HttpConnection::myRead()
             }
         }
         else if(nread == 0){
-            conn_state = DISCONNECTED;
             break;
         }
         readCount += nread;
@@ -201,13 +209,17 @@ HttpConnection::myRead()
     }
     if (readCount < 0)
     {
+        LOG_DEBUG("readCount < 0");
+        Log::get_instance()->flush();
         return false;
     }
     else if(readCount == 0)
     {
+        LOG_DEBUG("readCount == 0");
+        Log::get_instance()->flush();
         // 有请求出现但是读不到数据，可能是Request Aborted，或者来自网络的数据没有达到等原因
         // 最可能是对端已经关闭了，统一按照对端已经关闭处理
-        LOG_INFO("close connection");
+        conn_state = DISCONNECTED;
         return false;
     }
     return true;
@@ -224,7 +236,7 @@ HttpConnection::HandleRead()
     }
     else
     {
-        LOG_INFO("close connection");
+        LOG_INFO("myread close connection");
         Log::get_instance()->flush();
         delete this;
         return;
@@ -241,7 +253,7 @@ HttpConnection::HandleWrite()
     }
     else
     {
-        LOG_INFO("close connection");
+        LOG_INFO("mywrite close connection");
         Log::get_instance()->flush();
         delete this;
         return;
@@ -562,6 +574,8 @@ HttpConnection::doit()
     {
         case NO_REQUESTION://请求不完整
         {
+            LOG_DEBUG("No requestion");
+            Log::get_instance()->flush();
             //将fd属性再次改为可读，让epoll进行监听
             events |= EPOLLIN;
             m_channel->setEvents(events);
@@ -603,6 +617,8 @@ HttpConnection::doit()
         }
         case FILE_REQUESTION://GET文件资源无问题
         {
+            LOG_DEBUG("successful respond");
+            Log::get_instance()->flush();
             successful_respond();
             header_size = strlen(request_head_buffer);
             m_iv[0].iov_base = request_head_buffer;
@@ -610,11 +626,6 @@ HttpConnection::doit()
             events |= EPOLLOUT;
             m_channel->setEvents(events);
             m_loop->updatePoller(m_channel);
-            break;
-        }
-        case FINISH: //长连接短连接处理
-        {
-            HandleConn();
             break;
         }
         default:

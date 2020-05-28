@@ -34,8 +34,8 @@ private:
     int epfd;
     TimerQueue timerQueue;
     std::vector<epoll_event> m_events;
-    Channel *m_channels[MAXFDS];
-    HttpConnection *m_conns[MAXFDS];
+    std::vector<Channel *> m_channels;
+    std::shared_ptr<HttpConnection> m_conns[MAXFDS];
 };
 
 extern const int MAXEPOLL;

@@ -2,12 +2,13 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 22:29:25
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 09:53:28
+ * @LastEditTime: 2020-05-28 11:49:29
  * @FilePath: /myWebServer-master/Channel.cc
  */ 
 
 #include "Channel.h"
 #include "EventLoop.h"
+#include <iostream>
 
 Channel::Channel(EventLoop *loop_)
     : m_loop(loop_),
@@ -48,7 +49,7 @@ Channel::handleWrite()
 void
 Channel::handleConn()
 {
-    if(handleConn)
+    if(m_connHandler)
     {
         m_connHandler();
     }

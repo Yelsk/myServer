@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-26 17:41:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 20:58:34
+ * @LastEditTime: 2020-05-27 19:10:34
  * @FilePath: /myWebServer-master/EventLoopThreadPool.h
  */ 
 
@@ -18,10 +18,7 @@ class EventLoopThreadPool : NonCopyable
 {
 public:
     EventLoopThreadPool(EventLoop* baseLoop, int numThreads);
-    ~EventLoopThreadPool() {
-        LOG_INFO("~EventLoopThreadPool()");
-        Log::get_instance()->flush();
-    }
+    ~EventLoopThreadPool();
     void start();
     EventLoop *getNextLoop();
 

@@ -11,7 +11,7 @@
 
 using namespace std;
 
-Timer::Timer(HttpConnection *conn_, int timeout)
+Timer::Timer(shared_ptr<HttpConnection> conn_, int timeout)
     : m_deleted(false), 
     m_conn(conn_)
 {
@@ -25,12 +25,7 @@ Timer::Timer(HttpConnection *conn_, int timeout)
 Timer::~Timer()
 {
     //cout << "~myTimer" << endl;
-    if(m_conn)
-    {
-        //cout << "connection = " << conn << endl;
-        delete m_conn;
-        m_conn = nullptr;
-    }
+    m_conn.reset();
 }
 
 void

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 16:30:16
+ * @LastEditTime: 2020-05-28 16:55:15
  * @FilePath: /myWebServer-master/Epoll.h
  */ 
 
@@ -19,7 +19,6 @@ class Epoll
 public:
     Epoll();
     ~Epoll();
-    int epoll_add(int fd, int events);
     int epoll_add(Channel *request, int timeout);
     int epoll_mod(Channel *request, int timeout);
     int epoll_del(Channel *request);

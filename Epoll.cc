@@ -27,20 +27,6 @@ Epoll::~Epoll()
 }
 
 int
-Epoll::epoll_add(int fd, int events)
-{
-    struct epoll_event event;
-    event.data.fd = fd;
-    event.events = events;
-    if(epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &event) < 0)
-    {
-        perror("epoll_add error");
-        return 0;
-    }
-    return 1;
-}
-
-int
 Epoll::epoll_add(Channel *request, int timeout)
 {
     int fd = request->getFd();

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-27 10:57:50
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 16:51:29
+ * @LastEditTime: 2020-05-28 17:14:36
  * @FilePath: /myWebServer-master/WebServer.cc
  */ 
 
@@ -59,6 +59,7 @@ WebServer::handleNewConn()
     while (true)
     {
         int accept_fd = accept(m_listenfd, (struct sockaddr *)&client_addr, &client_addr_len);
+        EventLoop *loop = m_threadpool->getNextLoop();
         if(accept_fd < 0)
         {
             if(errno == EAGAIN)
@@ -80,9 +81,9 @@ WebServer::handleNewConn()
         }
         setsocketnodelay(accept_fd);
         // 文件描述符可以读，边缘触发(Edge Triggered)模式，保证一个socket连接在任一时刻只被一个线程处理
-        shared_ptr<HttpConnection> conn(new HttpConnection(accept_fd, m_loop, m_path, m_sqlpool, client_addr));
+        shared_ptr<HttpConnection> conn(new HttpConnection(accept_fd, loop, m_path, m_sqlpool, client_addr));
         conn->getChannel()->setConn(conn);
-        m_loop->queueInLoop(std::bind(&HttpConnection::newEvent, conn));
+        loop->queueInLoop(std::bind(&HttpConnection::newEvent, conn));
     }
     m_acceptchannel->setEvents(EPOLLIN | EPOLLET);
 }

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-28 17:19:09
+ * @LastEditTime: 2020-05-29 20:41:38
  * @FilePath: /myWebServer-master/HttpConnection.h
  */ 
 
@@ -57,10 +57,8 @@ const int FINISH = 11;
 //CONNECTIONSTATE
 const int CONNECTED = 12;
 const int DISCONNECTED = 13;
-const int HANDLEREAD = 14;
-const int HANDLEWRITE = 15;
 
-class HttpConnection : std::enable_shared_from_this<HttpConnection>
+class HttpConnection : public std::enable_shared_from_this<HttpConnection>
 {
 public:
     HttpConnection(int client_fd_, EventLoop *loop_,std::string path_, SQLPool *sqlpool_, sockaddr_in address_);
@@ -70,21 +68,25 @@ public:
     void HandleRead();
     void HandleWrite();//响应发送
     void HandleConn();
+    void HandleClose();
     void Reset();
     void doit();//线程接口函数
     void seperateTimer();
-    Channel *getChannel() { return m_channel; }
+    void linkTimer(std::shared_ptr<Timer> timer_) { m_timer = timer_; }
+    std::shared_ptr<Channel> getChannel() { return m_channel; }
     EventLoop *getLoop() { return m_loop; }
     sockaddr_in *getAddress() { return &m_address; }
     void newEvent();
 private:
+    //client_fd > m_channel
     int client_fd;
     int events;
     int read_count;
 private:
+    //m_loop > m_channel
     EventLoop *m_loop;
-    Channel *m_channel;
-    Timer *m_timer;
+    std::shared_ptr<Channel> m_channel;
+    std::weak_ptr<Timer> m_timer;
     MYSQL *m_mysql;
     SQLPool *m_sqlpool;
 private:

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 22:29:16
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 18:55:32
+ * @LastEditTime: 2020-05-29 22:20:18
  * @FilePath: /myWebServer-master/Channel.h
  */ 
 
@@ -12,6 +12,7 @@
 #include <sys/epoll.h>
 #include <functional>
 #include "NonCopyable.h"
+#include "Log.h"
 
 class EventLoop;
 class HttpConnection;
@@ -67,12 +68,11 @@ public:
     }
 
     void setEvents(uint32_t ev) { m_events = ev; }
-    uint32_t getEvents() {return m_events; }
+    uint32_t &getEvents() {return m_events; }
 
 private:
     CallBack m_readHandler;
     CallBack m_writeHandler;
     CallBack m_errorHandler;
     CallBack m_connHandler;
-
 };

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 21:12:44
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-28 11:23:13
+ * @LastEditTime: 2020-05-29 22:33:36
  * @FilePath: /myWebServer-master/EventLoop.cc
  */ 
 
@@ -35,9 +35,6 @@ EventLoop::EventLoop()
     m_wakeupChannel(new Channel(this, m_wakeupFd)),
     m_threadId(CurrentThread::tid())
 {
-    LOG_INFO("EventLoop created %p in thread %d", this, m_threadId);
-    Log::get_instance()->flush();
-    
     if(t_loopInThisThread)
     {
         LOG_ERROR("Another EventLoop %p exists in this thread %d", t_loopInThisThread, m_threadId);
@@ -55,6 +52,7 @@ EventLoop::EventLoop()
 EventLoop::~EventLoop()
 {
     assert(!m_looping);
+    m_wakeupChannel.reset();
     close(m_wakeupFd);
     t_loopInThisThread = nullptr;
 }
@@ -76,7 +74,7 @@ EventLoop::loop()
     assertInLoopThread();
     m_looping = true;
     m_quit = false;
-    std::vector<Channel *> ret;
+    std::vector<std::shared_ptr<Channel>> ret;
     while(!m_quit){
         ret.clear();
         ret = m_poller->poll();
@@ -86,8 +84,6 @@ EventLoop::loop()
         doPendingFuncs();
         m_poller->handleExpired();
     }
-    LOG_INFO("EventLoop %p stop looping", this);
-    Log::get_instance()->flush();
     m_looping = false;
 }
 
@@ -116,7 +112,7 @@ EventLoop::quit()
 void
 EventLoop::handleConn()
 {
-    m_poller->epoll_mod(m_wakeupChannel, 0);
+    updatePoller(m_wakeupChannel, 0);
 }
 
 void

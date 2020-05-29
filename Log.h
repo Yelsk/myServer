@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-28 15:18:39
+ * @LastEditTime: 2020-05-29 20:13:22
  * @FilePath: /myWebServer-master/Log.h
  */ 
 
@@ -14,8 +14,8 @@
 #include <stdarg.h>
 #include "BlockQueue.h"
 
-#define LOG_ENABLE
-//#define LOG_DISABLE
+//#define LOG_ENABLE
+#define LOG_DISABLE
 
 using namespace std;
 

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-26 17:42:02
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-26 21:59:36
+ * @LastEditTime: 2020-05-29 22:32:11
  * @FilePath: /myWebServer-master/EventLoopThreadPool.cc
  */ 
 
@@ -23,12 +23,6 @@ EventLoopThreadPool::EventLoopThreadPool(EventLoop *baseLoop, int numThreads)
 
 EventLoopThreadPool::~EventLoopThreadPool()
 {
-    for(int i = 0; i < m_numThreads; i++)
-    {
-        EventLoopThread *thread = m_threads[i];
-        delete thread;
-        thread = nullptr;
-    }
 }
 
 void
@@ -38,7 +32,7 @@ EventLoopThreadPool::start()
     m_started = true;
     for(int i = 0; i < m_numThreads; i++)
     {
-        EventLoopThread *thread = new EventLoopThread();
+        std::shared_ptr<EventLoopThread> thread(new EventLoopThread());
         m_threads.push_back(thread);
         m_loops.push_back(thread->startLoop());
     }

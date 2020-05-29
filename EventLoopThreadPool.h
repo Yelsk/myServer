@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-26 17:41:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 19:10:34
+ * @LastEditTime: 2020-05-29 22:36:22
  * @FilePath: /myWebServer-master/EventLoopThreadPool.h
  */ 
 
@@ -27,6 +27,6 @@ private:
     bool m_started;
     int m_numThreads;
     int m_next;
-    std::vector<EventLoopThread *> m_threads;
+    std::vector<std::shared_ptr<EventLoopThread>> m_threads;
     std::vector<EventLoop *> m_loops;
 };

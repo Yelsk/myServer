@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-27 10:57:50
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-28 17:14:36
+ * @LastEditTime: 2020-05-29 22:35:31
  * @FilePath: /myWebServer-master/WebServer.cc
  */ 
 
@@ -26,7 +26,7 @@ WebServer::WebServer(EventLoop *loop_,
     m_threadNum(threadNum_),
     m_port(port_),
     m_threadpool(new EventLoopThreadPool(loop_, threadNum_)),
-    m_acceptchannel(new Channel(loop_)),
+    m_acceptchannel(new Channel(m_loop)),
     m_started(false),
     m_listenfd(socket_bind_listen(port_))
 {
@@ -81,7 +81,7 @@ WebServer::handleNewConn()
         }
         setsocketnodelay(accept_fd);
         // 文件描述符可以读，边缘触发(Edge Triggered)模式，保证一个socket连接在任一时刻只被一个线程处理
-        shared_ptr<HttpConnection> conn(new HttpConnection(accept_fd, loop, m_path, m_sqlpool, client_addr));
+        std::shared_ptr<HttpConnection> conn(new HttpConnection(accept_fd, loop, m_path, m_sqlpool, client_addr));
         conn->getChannel()->setConn(conn);
         loop->queueInLoop(std::bind(&HttpConnection::newEvent, conn));
     }

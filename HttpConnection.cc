@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-28 15:34:33
+ * @LastEditTime: 2020-05-29 21:41:40
  * @FilePath: /myWebServer-master/HttpConnection.cc
  */ 
 
@@ -21,10 +21,12 @@ HttpConnection::HttpConnection(int client_fd_,
     path(path_),
     m_sqlpool(sqlpool_),
     m_address(address_),
-    m_channel(new Channel(loop_, client_fd_)),
+    m_channel(new Channel(loop_, client_fd)),
     keep_alive(false),
     error(false),
-    conn_state(CONNECTED)
+    events(0),
+    conn_state(CONNECTED),
+    contentLength(0)
 {
     m_channel->setReadHandler(bind(&HttpConnection::HandleRead, this));
     m_channel->setWriteHandler(bind(&HttpConnection::HandleWrite, this));
@@ -33,13 +35,7 @@ HttpConnection::HttpConnection(int client_fd_,
 
 HttpConnection::~HttpConnection()
 {
-    //cout << "~HttpConnection()" << endl;
-    m_loop->removeFromPoller(m_channel);
-    if (m_timer != NULL)
-    {
-        m_timer->clearConn();
-        m_timer = NULL;
-    }
+    close(client_fd);
 }
 
 void
@@ -55,6 +51,12 @@ HttpConnection::Reset()
     status = REQUETION;
     keep_alive = false;
     error = false;
+    if(m_timer.lock())
+    {
+        shared_ptr<Timer> my_timer(m_timer.lock());
+        my_timer->clearConn();
+        m_timer.reset();
+    }
 }
 
 void
@@ -67,11 +69,22 @@ HttpConnection::newEvent()
 void
 HttpConnection::seperateTimer()
 {
-    if(m_timer)
+    if(m_timer.lock())
     {
-        m_timer->clearConn();
-        m_timer = nullptr;
+        shared_ptr<Timer> my_timer(m_timer.lock());
+        my_timer->clearConn();
+        m_timer.reset();
     }
+}
+
+void
+HttpConnection::HandleClose() {
+    conn_state = DISCONNECTED;
+    LOG_DEBUG("handle close!!!");
+    Log::get_instance()->flush();
+    shared_ptr<HttpConnection> guard(shared_from_this());
+    m_loop->removeFromPoller(m_channel);
+    return;
 }
 
 void
@@ -82,6 +95,7 @@ HttpConnection::unmap()
         munmap(m_file_address, file_size);
         m_file_address = 0;
     }
+    return;
 }
 
 void
@@ -89,16 +103,16 @@ HttpConnection::HandleConn()
 {
     seperateTimer();
     int timeout = TIMER_EXPIRE_TIME;
-    if(conn_state == HANDLEREAD)
+    if((events &EPOLLIN) && conn_state == CONNECTED)
     {
-        LOG_DEBUG("read finish");
+        LOG_DEBUG("read not finish");
         Log::get_instance()->flush();
         if(keep_alive) timeout = KEEP_ALIVE_TIME;
         events = EPOLLIN | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP;
         m_channel->setEvents(events);
         m_loop->updatePoller(m_channel, timeout);
     }
-    else if(conn_state == HANDLEWRITE)
+    else if(events & EPOLLOUT)
     {
         if(status == FINISH)
         {
@@ -108,7 +122,7 @@ HttpConnection::HandleConn()
             {
                 Reset();
                 timeout = KEEP_ALIVE_TIME;
-                events = EPOLLOUT | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP;
+                events = EPOLLIN | EPOLLET | EPOLLONESHOT | EPOLLERR | EPOLLHUP;
                 m_channel->setEvents(events);
                 m_loop->updatePoller(m_channel, timeout);
             }
@@ -116,7 +130,7 @@ HttpConnection::HandleConn()
             {
                 LOG_INFO("close connection");
                 Log::get_instance()->flush();
-                delete this;
+                m_loop->runInLoop(std::bind(&HttpConnection::HandleClose, this));
                 return;
             }
         }
@@ -202,6 +216,7 @@ HttpConnection::myRead()
             }
         }
         else if(nread == 0){
+            conn_state = DISCONNECTED;
             break;
         }
         readCount += nread;
@@ -230,15 +245,17 @@ HttpConnection::HandleRead()
 {
     if(myRead())
     {
-        conn_state = HANDLEREAD;
         doit();
+        if(conn_state = DISCONNECTED){
+            read_buffer.clear();
+        }
         return;
     }
     else
     {
         LOG_INFO("myread close connection");
         Log::get_instance()->flush();
-        delete this;
+        m_loop->runInLoop(std::bind(&HttpConnection::HandleClose, this));
         return;
     }
 }
@@ -248,14 +265,13 @@ HttpConnection::HandleWrite()
 {
     if(myWrite())
     {
-        conn_state = HANDLEWRITE;
         return;
     }
     else
     {
         LOG_INFO("mywrite close connection");
         Log::get_instance()->flush();
-        delete this;
+        m_loop->runInLoop(std::bind(&HttpConnection::HandleClose, this));
         return;
     }
 }
@@ -485,6 +501,7 @@ HttpConnection::HandleRequest()
         file_name = path + url;
     }
     struct stat m_file_stat;
+    memset(&m_file_stat, 0, sizeof(struct stat));
     if(stat(file_name.c_str(), &m_file_stat))
     {
         file_name = path + "not_found_request.html";
@@ -500,6 +517,7 @@ HttpConnection::HandleRequest()
         file_name = path + "bad_respond.html";
         retval = BAD_REQUESTION;
     }
+    memset(&m_file_stat, 0, sizeof(struct stat));
     stat(file_name.c_str(), &m_file_stat);
     int fd = open(file_name.c_str(), O_RDONLY);
     m_file_address = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -579,7 +597,7 @@ HttpConnection::doit()
             //将fd属性再次改为可读，让epoll进行监听
             events |= EPOLLIN;
             m_channel->setEvents(events);
-            m_loop->updatePoller(m_channel);
+            m_loop->updatePoller(m_channel, 0);
             return;
         }
         case BAD_REQUESTION: //400
@@ -590,7 +608,7 @@ HttpConnection::doit()
             m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
             m_channel->setEvents(events);
-            m_loop->updatePoller(m_channel);
+            m_loop->updatePoller(m_channel, 0);
             break;
         }
         case FORBIDDEN_REQUESTION://403
@@ -601,7 +619,7 @@ HttpConnection::doit()
             m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
             m_channel->setEvents(events);
-            m_loop->updatePoller(m_channel);
+            m_loop->updatePoller(m_channel, 0);
             break;
         }
         case NOT_FOUND://404
@@ -612,7 +630,7 @@ HttpConnection::doit()
             m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
             m_channel->setEvents(events);
-            m_loop->updatePoller(m_channel);
+            m_loop->updatePoller(m_channel, 0);
             break;
         }
         case FILE_REQUESTION://GET文件资源无问题
@@ -625,11 +643,13 @@ HttpConnection::doit()
             m_iv[0].iov_len = header_size;
             events |= EPOLLOUT;
             m_channel->setEvents(events);
-            m_loop->updatePoller(m_channel);
+            m_loop->updatePoller(m_channel, 0);
             break;
         }
         default:
         {
+            LOG_DEBUG("delete this!!!");
+            Log::get_instance()->flush();
             delete this;
         }
     }

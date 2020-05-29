@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-28 16:55:15
+ * @LastEditTime: 2020-05-29 20:55:10
  * @FilePath: /myWebServer-master/Epoll.h
  */ 
 
@@ -19,12 +19,12 @@ class Epoll
 public:
     Epoll();
     ~Epoll();
-    int epoll_add(Channel *request, int timeout);
-    int epoll_mod(Channel *request, int timeout);
-    int epoll_del(Channel *request);
-    std::vector<Channel *> poll();
-    std::vector<Channel *> getEventsRequest(int events_num);
-    void add_timer(Channel *request, int timeout);
+    int epoll_add(std::shared_ptr<Channel> request, int timeout);
+    int epoll_mod(std::shared_ptr<Channel> request, int timeout);
+    int epoll_del(std::shared_ptr<Channel> request);
+    std::vector<std::shared_ptr<Channel>> poll();
+    std::vector<std::shared_ptr<Channel>> getEventsRequest(int events_num);
+    void add_timer(std::shared_ptr<Channel> request, int timeout);
     int getEpollfd() {return epfd;}
     void handleExpired() { timerQueue.handleExpired(); }
 
@@ -33,8 +33,6 @@ private:
     int epfd;
     TimerQueue timerQueue;
     std::vector<epoll_event> m_events;
-    std::vector<Channel *> m_channels;
+    std::shared_ptr<Channel> m_channels[MAXFDS];
     std::shared_ptr<HttpConnection> m_conns[MAXFDS];
 };
-
-extern const int MAXEPOLL;

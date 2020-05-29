@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 18:57:11
+ * @LastEditTime: 2020-05-29 21:28:33
  * @FilePath: /myWebServer-master/Timer.h
  */ 
 
@@ -37,17 +37,16 @@ class TimerCmp
 public:
     TimerCmp(){};
     ~TimerCmp(){};
-    bool operator()(const Timer *a, const Timer *b) const;
+    bool operator()(const std::shared_ptr<Timer> a, const std::shared_ptr<Timer> b) const;
 };
 
 class TimerQueue
 {
 private:
-    std::priority_queue<Timer *, std::deque<Timer *>, TimerCmp> m_queue;
+    std::priority_queue<std::shared_ptr<Timer>, std::deque<std::shared_ptr<Timer>>, TimerCmp> m_queue;
 public:
     TimerQueue();
     ~TimerQueue();
-    void addTimer(Timer *timer);
     void addTimer(std::shared_ptr<HttpConnection> conn_, int timeout);
     void handleExpired();
 };

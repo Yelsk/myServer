@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 14:52:52
+ * @LastEditTime: 2020-05-29 21:28:45
  * @FilePath: /myWebServer-master/Timer.cc
  */ 
 
@@ -24,8 +24,7 @@ Timer::Timer(shared_ptr<HttpConnection> conn_, int timeout)
 
 Timer::~Timer()
 {
-    //cout << "~myTimer" << endl;
-    m_conn.reset();
+    if(m_conn) m_conn->HandleClose();
 }
 
 void
@@ -62,7 +61,7 @@ Timer::isValid()
 void
 Timer::clearConn()
 {
-    m_conn = nullptr;
+    m_conn.reset();
     this->setDeleted();
 }
 
@@ -79,7 +78,7 @@ Timer::getExpTime() const
 }
 
 bool
-TimerCmp::operator()(const Timer *a, const Timer *b) const
+TimerCmp::operator()(const shared_ptr<Timer> a, const shared_ptr<Timer> b) const
 {
     return a->getExpTime() > b->getExpTime();
 }
@@ -88,31 +87,20 @@ TimerQueue::TimerQueue(){}
 
 TimerQueue::~TimerQueue()
 {
-    Timer *timer;
+    shared_ptr<Timer> timer;
     while(!m_queue.empty())
     {
         timer = m_queue.top();
         m_queue.pop();
-        delete timer;
-        timer = nullptr;
     }
-}
-
-void
-TimerQueue::addTimer(Timer *timer)
-{
-    if(timer) m_queue.push(timer);
-    else{
-        perror("no timer");
-    }
-    return;
 }
 
 void
 TimerQueue::addTimer(shared_ptr<HttpConnection> conn_, int timeout)
 {
-    Timer *timer = new Timer(conn_, timeout);
+    shared_ptr<Timer> timer(new Timer(conn_, timeout));
     m_queue.push(timer);
+    conn_->linkTimer(timer);
 }
 
 void
@@ -120,14 +108,12 @@ TimerQueue::handleExpired()
 {
     while(!m_queue.empty())
     {
-        Timer *timer = m_queue.top();
+        shared_ptr<Timer> timer = m_queue.top();
         if(timer->isDeleted()){
             m_queue.pop();
-            delete timer;
         }
         else if(!timer->isValid()){
             m_queue.pop();
-            delete timer;
         }
         else{
             break;

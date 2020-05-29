@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-27 10:57:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-27 19:31:28
+ * @LastEditTime: 2020-05-29 22:30:23
  * @FilePath: /myWebServer-master/WebServer.h
  */ 
 
@@ -24,12 +24,12 @@ public:
     EventLoop *getLoop() { return m_loop; }
     void start();
     void handleNewConn();
-    void handleThisCon() { m_loop->updatePoller(m_acceptchannel); }
+    void handleThisCon() { m_loop->updatePoller(m_acceptchannel, 0); }
 
 private:
     EventLoop *m_loop;
-    EventLoopThreadPool *m_threadpool;
-    Channel *m_acceptchannel;
+    std::unique_ptr<EventLoopThreadPool> m_threadpool;
+    std::shared_ptr<Channel> m_acceptchannel;
     SQLPool *m_sqlpool;
     std::string m_path;
     int m_threadNum;

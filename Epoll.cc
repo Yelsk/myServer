@@ -2,10 +2,11 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-28 15:32:07
+ * @LastEditTime: 2020-05-29 22:23:22
  * @FilePath: /myWebServer-master/Epoll.cc
  */ 
 
+#include <string>
 #include "Epoll.h"
 #include "HttpConnection.h"
 #include "Channel.h"
@@ -15,8 +16,7 @@ const int EPOLLWAIT_TIME = 10000;
 
 Epoll::Epoll()
     : epfd(epoll_create1(EPOLL_CLOEXEC)),
-    m_events(EVENTSNUM),
-    m_channels(MAXFDS, nullptr)
+    m_events(EVENTSNUM)
 {
     assert(epfd > 0);
 }
@@ -27,7 +27,7 @@ Epoll::~Epoll()
 }
 
 int
-Epoll::epoll_add(Channel *request, int timeout)
+Epoll::epoll_add(std::shared_ptr<Channel> request, int timeout)
 {
     int fd = request->getFd();
     if(timeout > 0){
@@ -35,40 +35,43 @@ Epoll::epoll_add(Channel *request, int timeout)
         m_conns[fd] = request->getConn();
     }
     struct epoll_event event;
+    memset(&event, 0, sizeof(struct epoll_event));
     event.data.fd = fd;
     event.events = request->getEvents();
     m_channels[fd] = request;
     if(epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &event) < 0)
     {
         perror("epoll_add error");
-        delete m_channels[fd];
+        m_channels[fd].reset();
         return 0;
     }
     return 1;
 }
 
 int
-Epoll::epoll_mod(Channel *request, int timeout)
+Epoll::epoll_mod(std::shared_ptr<Channel> request, int timeout)
 {
     if(timeout > 0) add_timer(request, timeout);
     int fd = request->getFd();
     struct epoll_event event;
+    memset(&event, 0, sizeof(struct epoll_event));
     event.data.fd = fd;
     event.events = request->getEvents();
     if(epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &event) < 0)
     {
         perror("epoll_mod error");
-        delete m_channels[fd];
+        m_channels[fd].reset();
         return 0;
     }
     return 1;
 }
 
 int
-Epoll::epoll_del(Channel *request)
+Epoll::epoll_del(std::shared_ptr<Channel> request)
 {
     int fd = request->getFd();
     struct epoll_event event;
+    memset(&event, 0, sizeof(struct epoll_event));
     event.data.fd = fd;
     event.events = request->getEvents();
     if(epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &event) < 0)
@@ -76,29 +79,30 @@ Epoll::epoll_del(Channel *request)
         perror("epoll_del error");
         return 0;
     }
-    delete m_channels[fd];
+    m_channels[fd].reset();
+    m_conns[fd].reset();
     return 1;
 }
 
-std::vector<Channel *>
+std::vector<std::shared_ptr<Channel>>
 Epoll::poll()
 {
     int ret_count = epoll_wait(epfd, &*m_events.begin(), m_events.size(), EPOLLWAIT_TIME);
     if(ret_count < 0){
         perror("epoll wait error");
     }
-    std::vector<Channel *> req_data = getEventsRequest(ret_count);
+    std::vector<std::shared_ptr<Channel>> req_data = getEventsRequest(ret_count);
     return req_data;
 }
 
-std::vector<Channel *>
+std::vector<std::shared_ptr<Channel>>
 Epoll::getEventsRequest(int events_count)
 {
-    std::vector<Channel *> req_data;
+    std::vector<std::shared_ptr<Channel>> req_data;
     for(int i = 0; i < events_count; i++)
     {
         int fd = m_events[i].data.fd;
-        Channel *cur_req = m_channels[fd];
+        std::shared_ptr<Channel> cur_req = m_channels[fd];
         if(cur_req)
         {
             cur_req->setEvents(m_events[i].events);
@@ -109,14 +113,14 @@ Epoll::getEventsRequest(int events_count)
             LOG_INFO("req is not valid");
             Log::get_instance()->flush();
         }
-        if(req_data.size() > 0) return req_data;
     }
+    return req_data;
 }
 
 void
-Epoll::add_timer(Channel *req_data, int timeout)
+Epoll::add_timer(std::shared_ptr<Channel> req_data, int timeout)
 {
-    shared_ptr<HttpConnection> conn = req_data->getConn();
+    std::shared_ptr<HttpConnection> conn = req_data->getConn();
     if(conn)
     {
         timerQueue.addTimer(conn, timeout);

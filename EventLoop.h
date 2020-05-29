@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 11:32:50
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-28 11:25:16
+ * @LastEditTime: 2020-05-29 20:09:42
  * @FilePath: /myWebServer-master/EventLoop.h
  */ 
 
@@ -30,16 +30,16 @@ public:
     void quit();
     void runInLoop(Functor &&func);
     void queueInLoop(Functor &&func);
-    void shutdown(Channel *channel) { shutdownwr(channel->getFd()); }
+    void shutdown(std::shared_ptr<Channel> channel) { shutdownwr(channel->getFd()); }
     void assertInLoopThread() { assert(isInLoopThread()); }
     bool isInLoopThread() { return m_threadId == CurrentThread::tid(); }
-    void removeFromPoller(Channel *channel) {
+    void removeFromPoller(std::shared_ptr<Channel> channel) {
         m_poller->epoll_del(channel);
     }
-    void updatePoller(Channel *channel, int timeout = 0) {
+    void updatePoller(std::shared_ptr<Channel> channel, int timeout = 0) {
         m_poller->epoll_mod(channel, timeout);
     }
-    void addToPoller(Channel *channel, int timeout = 0) {
+    void addToPoller(std::shared_ptr<Channel> channel, int timeout = 0) {
         m_poller->epoll_add(channel, timeout);
     }
 private:
@@ -52,7 +52,7 @@ private:
     //否则m_wakeupChannel(new Channel(this, m_wakeupFd))会先于m_wakeupFd初始化
     int m_wakeupFd;
     Epoll *m_poller;
-    Channel *m_wakeupChannel;
+    std::shared_ptr<Channel> m_wakeupChannel;
     mutable MutexLock m_mutex;
     std::vector<Functor> m_pendingFuncs;
     void wakeup();

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-29 20:41:38
+ * @LastEditTime: 2020-05-30 15:04:26
  * @FilePath: /myWebServer-master/HttpConnection.h
  */ 
 
@@ -57,6 +57,7 @@ const int FINISH = 11;
 //CONNECTIONSTATE
 const int CONNECTED = 12;
 const int DISCONNECTED = 13;
+const int READFINISH = 14;
 
 class HttpConnection : public std::enable_shared_from_this<HttpConnection>
 {

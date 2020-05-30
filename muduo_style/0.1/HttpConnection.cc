@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-29 21:41:40
+ * @LastEditTime: 2020-05-30 15:28:11
  * @FilePath: /myWebServer-master/HttpConnection.cc
  */ 
 
@@ -69,6 +69,8 @@ HttpConnection::newEvent()
 void
 HttpConnection::seperateTimer()
 {
+    LOG_INFO("seperateTimer %d", client_fd);
+    Log::get_instance()->flush();
     if(m_timer.lock())
     {
         shared_ptr<Timer> my_timer(m_timer.lock());
@@ -112,7 +114,7 @@ HttpConnection::HandleConn()
         m_channel->setEvents(events);
         m_loop->updatePoller(m_channel, timeout);
     }
-    else if(events & EPOLLOUT)
+    else if((events & EPOLLOUT) && conn_state == READFINISH)
     {
         if(status == FINISH)
         {
@@ -141,6 +143,13 @@ HttpConnection::HandleConn()
             m_channel->setEvents(events);
             m_loop->updatePoller(m_channel, timeout);
         }
+    }
+    else
+    {
+        LOG_INFO("close connection");
+        Log::get_instance()->flush();
+        m_loop->runInLoop(std::bind(&HttpConnection::HandleClose, this));
+        return;
     }
 }
 
@@ -216,7 +225,7 @@ HttpConnection::myRead()
             }
         }
         else if(nread == 0){
-            conn_state = DISCONNECTED;
+            conn_state = READFINISH;
             break;
         }
         readCount += nread;
@@ -253,9 +262,7 @@ HttpConnection::HandleRead()
     }
     else
     {
-        LOG_INFO("myread close connection");
-        Log::get_instance()->flush();
-        m_loop->runInLoop(std::bind(&HttpConnection::HandleClose, this));
+        conn_state = DISCONNECTED;
         return;
     }
 }
@@ -269,9 +276,7 @@ HttpConnection::HandleWrite()
     }
     else
     {
-        LOG_INFO("mywrite close connection");
-        Log::get_instance()->flush();
-        m_loop->runInLoop(std::bind(&HttpConnection::HandleClose, this));
+        conn_state = DISCONNECTED;
         return;
     }
 }
@@ -445,7 +450,7 @@ HttpConnection::HandleRequest()
 {
     int retval = FILE_REQUESTION;
     if(url.empty()){
-        url = "judge.html";
+        url = "test.html";
         file_name = path + url;
     }
     else if(method == "POST" && (url[0] == '2' || url[0] == '3'))

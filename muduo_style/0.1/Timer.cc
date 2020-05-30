@@ -2,12 +2,13 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-29 21:28:45
+ * @LastEditTime: 2020-05-30 14:53:54
  * @FilePath: /myWebServer-master/Timer.cc
  */ 
 
 #include "Timer.h"
 #include "HttpConnection.h"
+#include "Log.h"
 
 using namespace std;
 
@@ -83,22 +84,16 @@ TimerCmp::operator()(const shared_ptr<Timer> a, const shared_ptr<Timer> b) const
     return a->getExpTime() > b->getExpTime();
 }
 
-TimerQueue::TimerQueue(){}
+TimerQueue::TimerQueue() {}
 
-TimerQueue::~TimerQueue()
-{
-    shared_ptr<Timer> timer;
-    while(!m_queue.empty())
-    {
-        timer = m_queue.top();
-        m_queue.pop();
-    }
-}
+TimerQueue::~TimerQueue() {}
 
 void
 TimerQueue::addTimer(shared_ptr<HttpConnection> conn_, int timeout)
 {
     shared_ptr<Timer> timer(new Timer(conn_, timeout));
+    LOG_INFO("addTimer : %d", conn_->getChannel()->getFd());
+    Log::get_instance()->flush();
     m_queue.push(timer);
     conn_->linkTimer(timer);
 }

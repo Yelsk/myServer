@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-22 10:03:18
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-22 12:07:42
+ * @LastEditTime: 2020-06-01 22:29:56
  * @FilePath: /myWebServer-master/oldversion/0.3/SQLPool.h
  */ 
 
@@ -33,7 +33,7 @@ public:
     }
     
     void init(std::string url, std::string User, std::string PassWord, std::string DataBaseName, int Port, unsigned int MaxConn); 
-
+    
     SQLPool();
     ~SQLPool();
 private:

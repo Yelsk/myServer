@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-06-02 20:18:08
+ * @LastEditTime: 2020-05-30 15:04:26
  * @FilePath: /myWebServer-master/HttpConnection.h
  */ 
 

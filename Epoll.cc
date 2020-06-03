@@ -2,8 +2,8 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-29 22:23:22
- * @FilePath: /myWebServer-master/Epoll.cc
+ * @LastEditTime: 2020-06-03 10:58:45
+ * @FilePath: /myWebServer-master/muduo_style/0.1/Epoll.cc
  */ 
 
 #include <string>
@@ -27,7 +27,7 @@ Epoll::~Epoll()
 }
 
 int
-Epoll::epoll_add(std::shared_ptr<Channel> request, int timeout)
+Epoll::epoll_add(shared_ptr<Channel> request, int timeout)
 {
     int fd = request->getFd();
     if(timeout > 0){
@@ -49,7 +49,7 @@ Epoll::epoll_add(std::shared_ptr<Channel> request, int timeout)
 }
 
 int
-Epoll::epoll_mod(std::shared_ptr<Channel> request, int timeout)
+Epoll::epoll_mod(shared_ptr<Channel> request, int timeout)
 {
     if(timeout > 0) add_timer(request, timeout);
     int fd = request->getFd();
@@ -67,7 +67,7 @@ Epoll::epoll_mod(std::shared_ptr<Channel> request, int timeout)
 }
 
 int
-Epoll::epoll_del(std::shared_ptr<Channel> request)
+Epoll::epoll_del(shared_ptr<Channel> request)
 {
     int fd = request->getFd();
     struct epoll_event event;
@@ -84,25 +84,25 @@ Epoll::epoll_del(std::shared_ptr<Channel> request)
     return 1;
 }
 
-std::vector<std::shared_ptr<Channel>>
+vector<shared_ptr<Channel>>
 Epoll::poll()
 {
     int ret_count = epoll_wait(epfd, &*m_events.begin(), m_events.size(), EPOLLWAIT_TIME);
     if(ret_count < 0){
         perror("epoll wait error");
     }
-    std::vector<std::shared_ptr<Channel>> req_data = getEventsRequest(ret_count);
+    vector<shared_ptr<Channel>> req_data = getEventsRequest(ret_count);
     return req_data;
 }
 
-std::vector<std::shared_ptr<Channel>>
+vector<shared_ptr<Channel>>
 Epoll::getEventsRequest(int events_count)
 {
-    std::vector<std::shared_ptr<Channel>> req_data;
+    vector<shared_ptr<Channel>> req_data;
     for(int i = 0; i < events_count; i++)
     {
         int fd = m_events[i].data.fd;
-        std::shared_ptr<Channel> cur_req = m_channels[fd];
+        shared_ptr<Channel> cur_req = m_channels[fd];
         if(cur_req)
         {
             cur_req->setEvents(m_events[i].events);
@@ -118,9 +118,9 @@ Epoll::getEventsRequest(int events_count)
 }
 
 void
-Epoll::add_timer(std::shared_ptr<Channel> req_data, int timeout)
+Epoll::add_timer(shared_ptr<Channel> req_data, int timeout)
 {
-    std::shared_ptr<HttpConnection> conn = req_data->getConn();
+    shared_ptr<HttpConnection> conn = req_data->getConn();
     if(conn)
     {
         timerQueue.addTimer(conn, timeout);

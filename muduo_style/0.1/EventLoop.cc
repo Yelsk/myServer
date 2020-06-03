@@ -2,8 +2,8 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 21:12:44
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-29 22:33:36
- * @FilePath: /myWebServer-master/EventLoop.cc
+ * @LastEditTime: 2020-06-03 11:00:46
+ * @FilePath: /myWebServer-master/muduo_style/0.1/EventLoop.cc
  */ 
 
 #pragma once
@@ -74,7 +74,7 @@ EventLoop::loop()
     assertInLoopThread();
     m_looping = true;
     m_quit = false;
-    std::vector<std::shared_ptr<Channel>> ret;
+    vector<shared_ptr<Channel>> ret;
     while(!m_quit){
         ret.clear();
         ret = m_poller->poll();

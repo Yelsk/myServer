@@ -2,8 +2,8 @@
  * @Author: GanShuang
  * @Date: 2020-05-25 11:32:50
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-29 20:09:42
- * @FilePath: /myWebServer-master/EventLoop.h
+ * @LastEditTime: 2020-06-03 11:00:17
+ * @FilePath: /myWebServer-master/muduo_style/0.1/EventLoop.h
  */ 
 
 #pragma once
@@ -19,6 +19,9 @@
 #include "Epoll.h"
 #include "Util.h"
 
+using std::shared_ptr;
+using std::vector;
+
 class EventLoop : NonCopyable
 {
 public:
@@ -30,16 +33,16 @@ public:
     void quit();
     void runInLoop(Functor &&func);
     void queueInLoop(Functor &&func);
-    void shutdown(std::shared_ptr<Channel> channel) { shutdownwr(channel->getFd()); }
+    void shutdown(shared_ptr<Channel> channel) { shutdownwr(channel->getFd()); }
     void assertInLoopThread() { assert(isInLoopThread()); }
     bool isInLoopThread() { return m_threadId == CurrentThread::tid(); }
-    void removeFromPoller(std::shared_ptr<Channel> channel) {
+    void removeFromPoller(shared_ptr<Channel> channel) {
         m_poller->epoll_del(channel);
     }
-    void updatePoller(std::shared_ptr<Channel> channel, int timeout = 0) {
+    void updatePoller(shared_ptr<Channel> channel, int timeout = 0) {
         m_poller->epoll_mod(channel, timeout);
     }
-    void addToPoller(std::shared_ptr<Channel> channel, int timeout = 0) {
+    void addToPoller(shared_ptr<Channel> channel, int timeout = 0) {
         m_poller->epoll_add(channel, timeout);
     }
 private:
@@ -52,9 +55,9 @@ private:
     //否则m_wakeupChannel(new Channel(this, m_wakeupFd))会先于m_wakeupFd初始化
     int m_wakeupFd;
     Epoll *m_poller;
-    std::shared_ptr<Channel> m_wakeupChannel;
+    shared_ptr<Channel> m_wakeupChannel;
     mutable MutexLock m_mutex;
-    std::vector<Functor> m_pendingFuncs;
+    vector<Functor> m_pendingFuncs;
     void wakeup();
     void handleRead();
     void doPendingFuncs();

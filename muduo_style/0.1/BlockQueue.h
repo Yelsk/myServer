@@ -1,10 +1,10 @@
 /*
  * @Author: your name
  * @Date: 2020-05-16 19:54:29
- * @LastEditTime: 2020-05-27 19:09:19
+ * @LastEditTime: 2020-06-04 21:58:11
  * @LastEditors: GanShuang
  * @Description: In User Settings Edit
- * @FilePath: /myWebServer-master/BlockQueue.h
+ * @FilePath: /myWebServer-master/muduo_style/0.1/BlockQueue.h
  */ 
 
 
@@ -35,7 +35,7 @@ public:
         m_size = 0;
     }
     ~BlockQueue() {}
-
+    
     void clear()
     {
         m_mutex.lock();

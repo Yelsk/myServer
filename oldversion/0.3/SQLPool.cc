@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-22 10:24:10
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-22 11:00:06
+ * @LastEditTime: 2020-06-09 17:24:41
  * @FilePath: /myWebServer-master/oldversion/0.3/SQLPool.cc
  */ 
 
@@ -46,7 +46,7 @@ SQLPool::init(std::string url, std::string User, std::string PassWord, std::stri
     m_passWord = PassWord;
     m_databaseName = DataBaseName;
     m_port = Port;
-
+    
     m_locker.lock();
     for(int i = 0; i < MaxConn; i++)
     {

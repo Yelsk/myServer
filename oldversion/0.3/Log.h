@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-06-21 22:57:35
+ * @LastEditTime: 2020-06-27 10:20:48
  * @FilePath: /myWebServer-master/oldversion/0.3/Log.h
  */ 
 
@@ -38,7 +38,7 @@ public:
     void write_log(int level, const char *format, ...);
 
     void flush();
-
+    
 private:
     Log();
     virtual ~Log();

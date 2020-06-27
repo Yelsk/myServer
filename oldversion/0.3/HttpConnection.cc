@@ -2,11 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
-<<<<<<< HEAD
- * @LastEditTime: 2020-06-13 19:47:49
-=======
- * @LastEditTime: 2020-05-23 23:23:33
->>>>>>> parent of c843423... latest
+ * @LastEditTime: 2020-06-27 16:27:10
  * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.cc
  */ 
 
@@ -35,6 +31,11 @@ HttpConnection::HttpConnection(int _epfd,
                                                                         m_address(address),
                                                                         keep_alive(false)
 {
+    check_index = 0;
+    contentLength = 0;
+    status = REQUETION;
+    keep_alive = false;
+    error = false;
 }
 
 HttpConnection::~HttpConnection()

@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-25 10:32:24
+ * @LastEditTime: 2020-06-27 16:15:30
  * @FilePath: /myWebServer-master/oldversion/0.3/main.cc
  */ 
 
@@ -224,11 +224,19 @@ int main(int argc, char *argv[])
     if(listen_fd < 0)
     {
         LOG_ERROR("%s", "socket bind failed");
+        delete pool;
+        delete lock;
+        delete timerQueue;
+        delete epoll;
         return 1;
     }
     if(setnonblocking(listen_fd) < 0)
     {
         LOG_ERROR("%s", "set nonblocking error");
+        delete pool;
+        delete lock;
+        delete timerQueue;
+        delete epoll;
         return 1;
     }
     uint32_t event = EPOLLIN | EPOLLET | EPOLLRDHUP | EPOLLERR;
@@ -248,6 +256,7 @@ int main(int argc, char *argv[])
         handle_expired_event(lock, timerQueue);
     }
     close(listen_fd);
+    delete conn;
     delete pool;
     delete lock;
     delete timerQueue;

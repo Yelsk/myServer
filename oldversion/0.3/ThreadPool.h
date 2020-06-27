@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-06-27 11:08:36
+ * @LastEditTime: 2020-06-27 17:15:44
  * @FilePath: /myWebServer-master/oldversion/0.3/ThreadPool.h
  */ 
 
@@ -38,7 +38,7 @@ private:
  
 template <typename T>
 ThreadPool<T>::ThreadPool(){
-    thread_num = 4;
+    thread_num = 10;
     jobthread_num = 10000;
     quit_ = false;
     pthread_pool = new pthread_t[thread_num];

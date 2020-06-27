@@ -2,8 +2,8 @@
  * @Author: GanShuang
  * @Date: 2020-05-27 16:51:56
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-29 20:13:11
- * @FilePath: /myWebServer-master/main.cc
+ * @LastEditTime: 2020-06-27 17:31:25
+ * @FilePath: /myWebServer-master/muduo_style/0.1/main.cc
  */ 
 
 #include <string>
@@ -12,7 +12,7 @@
 #include "Log.h"
 
 int main(int argc, char *argv[]) {
-    int threadNum = 4;
+    int threadNum = 8;
     int port = 8888;
     std::string path = "./WEB/";
     Log::get_instance()->init("ServerLog", 2000, 800000, 100);

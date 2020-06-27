@@ -2,7 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
- * @LastEditTime: 2020-05-23 17:50:01
+ * @LastEditTime: 2020-06-27 11:06:09
  * @FilePath: /myWebServer-master/oldversion/0.3/Log.h
  */ 
 
@@ -14,8 +14,8 @@
 #include <stdarg.h>
 #include "BlockQueue.h"
 
-#define LOG_ENABLE
-//#define LOG_DISABLE
+//#define LOG_ENABLE
+#define LOG_DISABLE
 
 using namespace std;
 
@@ -38,7 +38,7 @@ public:
     void write_log(int level, const char *format, ...);
 
     void flush();
-
+    
 private:
     Log();
     virtual ~Log();

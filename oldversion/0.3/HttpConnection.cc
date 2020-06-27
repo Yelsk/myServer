@@ -2,7 +2,11 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
+<<<<<<< HEAD
  * @LastEditTime: 2020-06-13 19:47:49
+=======
+ * @LastEditTime: 2020-05-23 23:23:33
+>>>>>>> parent of c843423... latest
  * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.cc
  */ 
 

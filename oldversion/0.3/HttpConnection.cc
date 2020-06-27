@@ -2,11 +2,7 @@
  * @Author: GanShuang
  * @Date: 2020-05-21 18:59:39
  * @LastEditors: GanShuang
-<<<<<<< HEAD
- * @LastEditTime: 2020-06-13 19:47:49
-=======
- * @LastEditTime: 2020-05-23 23:23:33
->>>>>>> parent of c843423... latest
+ * @LastEditTime: 2020-06-27 15:49:26
  * @FilePath: /myWebServer-master/oldversion/0.3/HttpConnection.cc
  */ 
 
@@ -80,7 +76,7 @@ HttpConnection::unmap()
     if (m_file_address)
     {
         munmap(m_file_address, file_size);
-        m_file_address = 0;
+        m_file_address = nullptr;
     }
 }
 
